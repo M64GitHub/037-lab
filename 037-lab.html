@@ -188,12 +188,14 @@ h2:first-child{margin-top:0}
   background:#0b0f1c; border:1px solid var(--line); border-radius:10px;
   max-height:560px; overflow-y:auto; font-size:13px;
 }
-.prow{display:grid; grid-template-columns:44px 76px 1fr; gap:0; padding:1px 10px; cursor:default}
+.prow{display:grid; grid-template-columns:44px 76px 48px 1fr; gap:0; padding:1px 10px; cursor:default}
 .prow .st{color:var(--faint)}
 .prow .nt{font-weight:700; cursor:pointer; border-radius:4px; padding:0 5px}
 .prow .nt:hover{background:var(--cyan-soft)}
 .prow .nt.rest{color:var(--faint); font-weight:400}
 .prow .nt.holdc{color:var(--faint); font-weight:400}
+.prow .fx{color:var(--amber); font-size:12px}
+#mPat.noslide .fx{opacity:.35; text-decoration:line-through}
 .prow .ch{color:var(--faint); font-size:11.5px; text-align:right}
 .prow.beat{background:rgba(255,255,255,.028)}
 .prow.bar{border-top:1px solid var(--line)}
@@ -291,7 +293,7 @@ footer{max-width:1100px; margin:0 auto; padding:0 20px 30px; color:var(--faint);
   <section class="tab" id="tab-melody">
     <h2>Melody Lab</h2>
     <div class="hint">Generates melodies from the current scale on a 16th-note grid, tracker-style.
-      <b>Click a note</b> to reroll it &middot; <b>double-click</b> to mute it to a rest. <code style="color:var(--faint)">&middot;&middot;&middot;</code> = rest, <code style="color:var(--faint)">|</code> = note still ringing.</div>
+      <b>Click a note</b> to reroll it &middot; <b>double-click</b> to mute it to a rest. <code style="color:var(--faint)">&middot;&middot;&middot;</code> = rest, <code style="color:var(--faint)">|</code> = note still ringing &middot; <code style="color:var(--amber)">3xx</code> = slide into the note (tone portamento).</div>
     <div class="mlay">
       <div class="card ctlcard">
         <label>Length <select id="mLen"><option value="16">16 steps (1 bar)</option><option value="32" selected>32 steps (2 bars)</option><option value="64">64 steps (4 bars)</option></select></label>
@@ -300,10 +302,12 @@ footer{max-width:1100px; margin:0 auto; padding:0 20px 30px; color:var(--faint);
         <label>Range <select id="mRange"><option value="1">1 octave</option><option value="2" selected>2 octaves</option><option value="3">3 octaves</option></select></label>
         <label>Rests <input type="range" id="mRest" min="0" max="40" value="10"><span class="v" id="mRestVal">10%</span></label>
         <label>Leaps <input type="range" id="mLeap" min="0" max="50" value="15"><span class="v" id="mLeapVal">15%</span></label>
+        <label>Slides <select id="mSlide"><option value="off" selected>Off</option><option value="some">Some</option><option value="lots">Lots</option></select></label>
         <div class="sect">
           <label>Progression <select id="mProg"></select></label>
           <label>Chord arps <input type="checkbox" id="mArp" checked></label>
           <label>Bass <input type="checkbox" id="mBass" checked></label>
+          <label>Hear slides <input type="checkbox" id="mHearSlide" checked></label>
           <label>Loop <input type="checkbox" id="mLoop" checked></label>
         </div>
         <div class="btns">
@@ -454,13 +458,15 @@ function audio(){
 }
 function freq(m){return 440*Math.pow(2,(m-69)/12);}
 let live=[];
-function voice(midi,{t=null,dur=.3,gain=.8,wave=null,glideTo=null,glideT=0,vib=false}={}){
+function voice(midi,{t=null,dur=.3,gain=.8,wave=null,glideTo=null,glideT=0,vib=false,ramps=null}={}){
   const ac=audio(); const t0=(t==null?ac.currentTime:t);
   const o=ac.createOscillator();
   const w=wave||S.wave;
   if(waves[w]) o.setPeriodicWave(waves[w]); else o.type=w;
   o.frequency.setValueAtTime(freq(midi),t0);
   if(glideTo!=null) o.frequency.exponentialRampToValueAtTime(freq(glideTo),t0+glideT);
+  // ramps: [{t,midi,secs}] — tone portamento chain, linear in Hz like a SID/tracker player, no retrigger
+  if(ramps){ let cur=midi; for(const r of ramps){ o.frequency.setValueAtTime(freq(cur),r.t); o.frequency.linearRampToValueAtTime(freq(r.midi),r.t+r.secs); cur=r.midi; } }
   let lfo=null,lg=null;
   if(vib){
     lfo=ac.createOscillator(); lg=ac.createGain();
@@ -712,6 +718,46 @@ function varyBar(bar,chordF,opts,amount,cadence){
   }
   return {cells,last:cells[onsets[onsets.length-1]]?.midi??null};
 }
+/* --- slides (tone portamento, 3xx) --- */
+const SLIDE_LV={some:{cap:2,leapP:.3,stepP:0},lots:{cap:4,leapP:.6,stepP:.3}};
+function noteLen(cells,i){ let n=1; while(i+n<cells.length&&cells[i+n].type==='hold') n++; return n; }
+// pitch of the note still ringing when step i starts; null if a rest sits in between (nothing to slide from)
+function prevNoteMidi(cells,i){ for(let j=i-1;j>=0;j--){ if(cells[j].type==='note') return cells[j].midi; if(cells[j].type==='rest') return null; } return null; }
+// SID-Wizard 03vv timing: time ≈ (1 − 2^(−semis/12)) · 2^((107 − ⌈vv/2⌉)/12) · 20 ms, and its inverse
+function slideSecs(semi,vv){ return (1-Math.pow(2,-semi/12))*Math.pow(2,(107-Math.ceil(vv/2))/12)*.02; }
+function slideVal(semi,secs){ const v=2*Math.round(107-12*Math.log2(secs/(.02*(1-Math.pow(2,-semi/12))))); return Math.max(0x10,Math.min(0xA0,v)); }
+function fxText(c){ return (c.type==='note'&&c.slide!=null)?'3'+c.slide.toString(16).toUpperCase().padStart(2,'0'):''; }
+function curStepDur(){ return 60/(+$('#mBpm').value)/4; }
+function placeSlides(cells,level,bars,stepDur){
+  cells.forEach(c=>{ if(c.slide!=null) delete c.slide; });
+  const lv=SLIDE_LV[level]; if(!lv) return;
+  for(let b=0;b<bars;b++){
+    const on=[]; for(let i=b*16;i<b*16+16;i++) if(cells[i].type==='note') on.push(i);
+    if(!on.length) continue;
+    // candidates: previous note still ringing, at least an 8th long, and actually a different pitch
+    const cand=on.map(i=>{
+      const p=prevNoteMidi(cells,i); if(p==null) return null;
+      const len=noteLen(cells,i); if(len<2) return null;
+      const semi=cells[i].midi-p; if(!semi) return null;
+      return {i,semi,len};
+    }).filter(Boolean);
+    if(!cand.length) continue;
+    const peak=Math.max(...on.map(i=>cells[i].midi)), last=on[on.length-1];
+    const picked=[]; const take=(c,frac)=>{ if(c&&picked.length<lv.cap&&!picked.some(p=>p.i===c.i)) picked.push({...c,frac}); };
+    take(cand.find(c=>cells[c.i].midi===peak&&c.semi>=2),.5);                   // slide up into the peak of the bar
+    if(b===bars-1) take(cand.find(c=>c.i===last),.7);                            // slow slide into the cadence note
+    for(const c of cand) if(Math.abs(c.semi)>=4&&chance(lv.leapP)) take(c,.5);   // bends on leaps
+    for(const c of cand) if(Math.abs(c.semi)<=2&&chance(lv.stepP)) take(c,.3);   // quick legato on steps (Lots only)
+    // speed from the interval and the note length: the glide should be done part-way into the note
+    for(const p of picked) cells[p.i].slide=slideVal(Math.abs(p.semi),p.len*stepDur*p.frac);
+  }
+}
+function reslide(i){
+  const c=MEL.cells[i]; if(c.type!=='note'||c.slide==null) return;
+  const p=prevNoteMidi(MEL.cells,i), semi=p==null?0:Math.abs(c.midi-p);
+  if(!semi){ delete c.slide; return; }
+  c.slide=slideVal(semi,noteLen(MEL.cells,i)*curStepDur()*.5);
+}
 function currentProg(){ return PROGS[+$('#mProg').value]; }
 function barChord(b){
   const L=S.scale.iv.length;
@@ -740,6 +786,8 @@ function generateMelody(){
     made.push(bar); prev=bar.last??prev;
     MEL.cells.push(...bar.cells);
   }
+  placeSlides(MEL.cells,$('#mSlide').value,bars,curStepDur());
+  if(bars===4) for(let i=0;i<16;i++){ const s=MEL.cells[i].slide; if(s!=null) MEL.cells[32+i].slide=s; else delete MEL.cells[32+i].slide; }
   renderPattern();
   $('#mMsg').textContent='';
 }
@@ -752,6 +800,7 @@ function variationMelody(){
     const v=varyBar(bar,MEL.chords[b],opts,.3,b===MEL.bars-1);
     for(let i=0;i<16;i++) MEL.cells[b*16+i]=v.cells[i];
   }
+  placeSlides(MEL.cells,$('#mSlide').value,MEL.bars,curStepDur());
   renderPattern();
 }
 function renderPattern(){
@@ -767,7 +816,10 @@ function renderPattern(){
     else if(c.type==='hold'){nt='&nbsp;|';cls='nt holdc';}
     else {nt='\u00b7\u00b7\u00b7';cls='nt rest';}
     const ch=(i%16===0)?(()=>{const f=MEL.chords[i/16];const nm=pcname(f.rootNote);const lb=chordLabel(f.rel);return nm+(lb!==null?lb:'')+ ' \u2039'+f.rel.join(' ')+'\u203a';})():'';
-    row.innerHTML=`<span class="st">${hex}</span><span class="${cls}">${nt}</span><span class="ch">${ch}</span>`;
+    const fx=fxText(c); let fxTitle='';
+    if(fx){ const p=prevNoteMidi(MEL.cells,i); const semi=p==null?0:Math.abs(c.midi-p);
+      fxTitle=` title="tone portamento ${fx}`+(semi?` \u00b7 \u2248${Math.round(slideSecs(semi,c.slide)*1000)} ms over ${semi} st`:'')+'"'; }
+    row.innerHTML=`<span class="st">${hex}</span><span class="${cls}">${nt}</span><span class="fx"${fxTitle}>${fx}</span><span class="ch">${ch}</span>`;
     const ncell=row.querySelector('.nt');
     ncell.addEventListener('click',()=>{
       const cell=MEL.cells[i];
@@ -775,6 +827,7 @@ function renderPattern(){
         const pool=melodyPool();
         const chordPcs=MEL.chords[Math.floor(i/16)].midis.map(m=>m%12);
         cell.midi=walkPitch(pool,cell.midi,.2,chordPcs,i%4===0);
+        reslide(i); if(i+1<MEL.cells.length) reslide(i+noteLen(MEL.cells,i));
         playNote(cell.midi,.25); renderPattern();
       }
     });
@@ -796,13 +849,22 @@ function scheduleMelody(t0){
   const ac=audio();
   const bpm=+$('#mBpm').value, stepDur=60/bpm/4;
   MEL.stepDur=stepDur;
-  const useArp=$('#mArp').checked, useBass=$('#mBass').checked;
-  MEL.cells.forEach((c,i)=>{
-    if(c.type==='note'){
-      let len=1,k=i+1; while(k<MEL.cells.length&&MEL.cells[k].type==='hold'){len++;k++;}
-      voice(c.midi,{t:t0+i*stepDur,dur:Math.max(stepDur*len*.92,.06),gain:.85});
+  const useArp=$('#mArp').checked, useBass=$('#mBass').checked, hear=$('#mHearSlide').checked;
+  // lead: a note plus every following 3xx note that starts exactly where the previous one ends
+  // is ONE voice (no retrigger) whose pitch ramps at each slide — that is what tone portamento means
+  const on=[]; MEL.cells.forEach((c,i)=>{ if(c.type==='note') on.push(i); });
+  for(let k=0;k<on.length;){
+    const i=on[k]; let cur=MEL.cells[i].midi, end=i+noteLen(MEL.cells,i); const ramps=[];
+    let j=k+1;
+    while(hear&&j<on.length&&on[j]===end&&MEL.cells[on[j]].slide!=null){
+      const n=MEL.cells[on[j]], len=noteLen(MEL.cells,on[j]);
+      const secs=Math.min(slideSecs(Math.abs(n.midi-cur),n.slide),len*stepDur*.95);   // must land before the note ends
+      ramps.push({t:t0+on[j]*stepDur,midi:n.midi,secs:Math.max(secs,.005)});
+      cur=n.midi; end=on[j]+len; j++;
     }
-  });
+    voice(MEL.cells[i].midi,{t:t0+i*stepDur,dur:Math.max((end-i)*stepDur*.92,.06),gain:.85,ramps:ramps.length?ramps:null});
+    k=j;
+  }
   for(let b=0;b<MEL.bars;b++){
     const f=MEL.chords[b], bt=t0+b*16*stepDur;
     if(useArp){
@@ -856,8 +918,9 @@ function copyMelody(){
   let out=`${pcname(S.root)} ${S.scale.name} \u00b7 ${MEL.cells.length} steps @ ${bpm} BPM \u00b7 prog ${currentProg().name}\n`;
   MEL.cells.forEach((c,i)=>{
     const hex=i.toString(16).toUpperCase().padStart(2,'0');
-    out+=hex+' '+(c.type==='note'?tname(c.midi):c.type==='hold'?' | ':'...')+'\n';
+    out+=hex+' '+(c.type==='note'?tname(c.midi):c.type==='hold'?' | ':'...')+' '+(fxText(c)||'...')+'\n';
   });
+  if(MEL.cells.some(c=>c.slide!=null)) out+='3xx = tone portamento (SID-Wizard speed values)\n';
   navigator.clipboard.writeText(out).then(()=>{$('#mMsg').textContent='Copied to clipboard.';})
     .catch(()=>{$('#mMsg').textContent='Clipboard blocked \u2014 select the pattern and copy manually.';});
 }
@@ -873,6 +936,7 @@ $('#mCopy').addEventListener('click',copyMelody);
 $('#mBpm').addEventListener('input',e=>$('#mBpmVal').textContent=e.target.value);
 $('#mRest').addEventListener('input',e=>$('#mRestVal').textContent=e.target.value+'%');
 $('#mLeap').addEventListener('input',e=>$('#mLeapVal').textContent=e.target.value+'%');
+$('#mHearSlide').addEventListener('change',e=>{ $('#mPat').classList.toggle('noslide',!e.target.checked); if(MEL.playing) playMelody(); });
 document.addEventListener('keydown',e=>{
   if(e.code==='Space' && $('#tab-melody').classList.contains('on') && !['SELECT','INPUT','BUTTON'].includes(e.target.tagName)){
     e.preventDefault(); MEL.playing?stopMelody():playMelody();
@@ -935,7 +999,9 @@ const TECH=[
 <p>Straight attack + late vibrato instantly makes long notes sound intentional instead of static. The demo plays the same note plain, then with delayed vibrato.</p>`},
 {t:'Slides &amp; portamento',d:'slide',b:`
 <p>Gliding into a note (tone portamento, often <code>3xx</code>) is the cheapest way to add emotion. Classic uses: slide up into the highest note of a phrase, slide down at the end of a phrase, or slow bends between two notes for that lead-guitar feel.</p>
-<p>Fast slide = accent. Slow slide = drama. EDM leads and basses live on this.</p>`},
+<p>Fast slide = accent. Slow slide = drama. EDM leads and basses live on this.</p>
+<p>In SID-Wizard the value sets a &ldquo;calculated&rdquo; speed, so a slide of N semitones takes about the same time at any pitch: <code>$30</code>&ndash;<code>$60</code> is the everyday portamento zone (a semitone in ~140&ndash;40 ms), <code>$08</code>&ndash;<code>$20</code> is a slow, dramatic slide, <code>$80</code> and up is a one-frame snap. Every +<code>$18</code> doubles the speed.</p>
+<p>The <b>Melody Lab</b> can place slides for you: set <b>Slides</b> to Some or Lots and Generate &mdash; the amber <code>3xx</code> column is the value to type, hover it for the glide time. Untick <b>Hear slides</b> to A/B the same melody without them.</p>`},
 {t:'Octave bass',d:'octbass',b:`
 <p>The oldest trick in dance music and chiptune alike: alternate the bass note with the same note one octave up (<code>0 12 0 12\u2026</code>) in straight 8ths or 16ths. Instant drive, zero extra channels.</p>
 <p>Variants: octave on the off-beats only, or up two octaves every 4th hit. Triangle or 25% pulse works great.</p>`},
