@@ -188,9 +188,11 @@ h2:first-child{margin-top:0}
   background:#0b0f1c; border:1px solid var(--line); border-radius:10px;
   max-height:560px; overflow-y:auto; font-size:13px;
 }
-.prow,.phead{display:grid; grid-template-columns:44px 76px 48px 76px 1fr; gap:0; padding:1px 10px; cursor:default}
-.phead{position:sticky; top:0; z-index:1; padding:6px 10px 5px; background:#0b0f1c; border-bottom:1px solid var(--line); color:var(--faint); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase}
-.phead .nt,.phead .bs{padding:0 5px} .phead .ch{text-align:right}
+.prow,.phead{display:grid; grid-template-columns:44px 76px 48px 104px 1fr; gap:0; padding:1px 10px; cursor:default}
+.phead{grid-template-columns:44px 124px 104px 1fr; align-items:center; position:sticky; top:0; z-index:1; padding:5px 10px 4px; background:#0b0f1c; border-bottom:1px solid var(--line); color:var(--faint); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase}
+.phead .hm,.phead .hb{display:flex; align-items:center; gap:4px; padding:0 5px} .phead .ch{text-align:right}
+.xb{font-family:var(--mono); font-size:10px; letter-spacing:.04em; line-height:15px; padding:0 5px; border:1px solid var(--line2); border-radius:4px; background:var(--panel2); color:var(--dim); cursor:pointer}
+.xb:hover{border-color:var(--cyan); color:var(--cyan)} .phead .hm .xb:first-of-type{margin-left:4px}
 .prow .st{color:var(--faint)}
 .prow .nt{font-weight:700; cursor:pointer; border-radius:4px; padding:0 5px}
 .prow .nt:hover{background:var(--cyan-soft)}
@@ -298,7 +300,7 @@ footer{max-width:1100px; margin:0 auto; padding:0 20px 30px; color:var(--faint);
   <section class="tab" id="tab-melody">
     <h2>Melody Lab</h2>
     <div class="hint">Generates melodies from the current scale on a 16th-note grid, tracker-style.
-      <b>Click a note</b> to reroll it &middot; <b>double-click</b> to mute it to a rest. <code style="color:var(--faint)">&middot;&middot;&middot;</code> = rest, <code style="color:var(--faint)">|</code> = note still ringing &middot; <code style="color:var(--amber)">3xx</code> = slide into the note (tone portamento) &middot; the <b>Bass</b> column shows the octave-bass figure playing underneath (display only, no fx).</div>
+      <b>Click a note</b> to reroll it &middot; <b>double-click</b> to mute it to a rest. <code style="color:var(--faint)">&middot;&middot;&middot;</code> = rest, <code style="color:var(--faint)">|</code> = note still ringing &middot; <code style="color:var(--amber)">3xx</code> = slide into the note (tone portamento) &middot; the <b>Bass</b> column shows the octave-bass figure playing underneath (display only, no fx). The <b>IT</b> / <b>SWM</b> buttons in the column headers copy that column to the clipboard for DUET, OpenMPT or Schism.</div>
     <div class="mlay">
       <div class="card ctlcard">
         <label>Length <select id="mLen"><option value="16">16 steps (1 bar)</option><option value="32" selected>32 steps (2 bars)</option><option value="64">64 steps (4 bars)</option></select></label>
@@ -826,7 +828,9 @@ function renderPattern(){
   const box=$('#mPat'); box.innerHTML='';
   if(!MEL.cells.length){box.innerHTML='<div style="padding:24px;color:var(--faint)">Press Generate to get a melody.</div>';return;}
   const head=document.createElement('div'); head.className='phead';
-  head.innerHTML='<span class="st">#</span><span class="nt">Melody</span><span class="fx">FX</span><span class="bs">Bass</span><span class="ch">Chord</span>';
+  const xb=(col,fmt)=>`<button class="xb" data-col="${col}" data-fmt="${fmt}" title="Copy the ${col==='mel'?'melody':'bass'} column as ${fmt==='it'?'OpenMPT / IT text (DUET, OpenMPT, Schism)':'DUET SW text (SID-Wizard track)'}">${fmt==='it'?'IT':'SWM'}</button>`;
+  head.innerHTML='<span class="st">#</span><span class="hm">Melody'+xb('mel','it')+xb('mel','swm')+'</span><span class="hb">Bass'+xb('bass','it')+xb('bass','swm')+'</span><span class="ch">Chord</span>';
+  head.querySelectorAll('.xb').forEach(b=>b.addEventListener('click',()=>exportColumn(b.dataset.col,b.dataset.fmt)));
   box.appendChild(head);
   MEL.cells.forEach((c,i)=>{
     const row=document.createElement('div');
@@ -946,6 +950,33 @@ function copyMelody(){
   if(MEL.cells.some(c=>c.slide!=null)) out+='3xx = tone portamento (SID-Wizard speed values)\n';
   navigator.clipboard.writeText(out).then(()=>{$('#mMsg').textContent='Copied to clipboard.';})
     .catch(()=>{$('#mMsg').textContent='Clipboard blocked \u2014 select the pattern and copy manually.';});
+}
+/* --- clipboard export: OpenMPT "ModPlug Tracker  IT" and "DUET SW" (see duetracker/docs/clipboard-format.md) --- */
+function itName(m){ return tname(m+12); }   // IT / OpenMPT / DUET: middle C (MIDI 60) is C-5, the app shows it as C-4
+// IT Gxx = xx/16 semitone per tick on the 5 non-first ticks of a row; speed 6 and tempo = BPM make one row a 16th
+function itSpeed(semi,secs,bpm){ return Math.max(1,Math.min(255,Math.round(40*semi/(bpm*secs)))); }
+function exportText(cells,fmt){
+  const bpm=+$('#mBpm').value, hex2=v=>v.toString(16).toUpperCase().padStart(2,'0'), it=fmt==='it';
+  const lines=[it?'ModPlug Tracker  IT':'DUET SW'];
+  cells.forEach((c,i)=>{
+    let note='...', fx=it?'...':'....';
+    if(c.type==='note'){
+      note=itName(c.midi);
+      if(c.slide!=null){
+        const p=prevNoteMidi(cells,i), semi=p==null?0:Math.abs(c.midi-p);
+        if(semi) fx=it?'G'+hex2(itSpeed(semi,slideSecs(semi,c.slide),bpm)):'03'+hex2(c.slide);
+      }
+    } else if(c.type==='rest'&&it&&i>0&&cells[i-1].type!=='rest') note='===';   // note-off: the app's rest is silence
+    lines.push(it?'|'+note+'..'+'...'+fx:'|'+note+'..'+fx);                       // 11 chars (IT) / 9 chars (SWM) per cell
+  });
+  return lines.join('\n')+'\n';
+}
+function exportColumn(col,fmt){
+  const cells=col==='mel'?MEL.cells:MEL.bass; if(!cells.length) return;
+  const text=exportText(cells,fmt);
+  const what=(col==='mel'?'Melody':'Bass')+' \u2192 clipboard as '+(fmt==='it'?'ModPlug IT':'DUET SW')+', '+cells.length+' rows.';
+  navigator.clipboard.writeText(text).then(()=>{$('#mMsg').textContent=what;})
+    .catch(()=>{$('#mMsg').textContent='Clipboard blocked \u2014 try again after clicking in the page.';});
 }
 function fillMelodyProg(){
   const sel=$('#mProg'); const cur=sel.value||'0';

@@ -40,8 +40,10 @@ progressions play as fast arps, one bar each, in the current key.
 range, rests and leaps; it writes chord tones on the strong steps, walks stepwise in between,
 and shapes phrases (A B A B′). Click a note to reroll it, double-click to mute it, space to
 play. Chord arps and a triangle octave bass come along for the ride — the bass has its own
-column so you can see exactly what plays under the melody — and *Copy as text* hands you the
-pattern to paste anywhere.
+column so you can see exactly what plays under the melody — and each column has **IT** / **SWM**
+buttons in its header that copy it to the clipboard in OpenMPT's `ModPlug Tracker  IT` text or
+DUET's `DUET SW` format, slides included (`Gxx` / `03xx`), ready to paste into DUET, OpenMPT or
+Schism. *Copy as text* still gives you a plain readable dump.
 
 - **Slides** — set *Some* or *Lots* and the generator places tone portamento where it belongs:
   sliding up into the peak of a phrase, down into the cadence, bending across leaps. The amber
