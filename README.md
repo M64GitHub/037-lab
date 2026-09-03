@@ -28,7 +28,7 @@ your first click; everything is synthesised with pulse / triangle / saw waves in
 
 ## What's inside
 
-Global controls up top — **root, scale, waveform, arp rate, volume** — drive all four tabs.
+Global controls up top — **root, scale, waveform, arp rate, volume** — drive all five tabs.
 
 **Scale & Chords** — twenty-four scales in four families (the modes; minor and exotic flavours
 like harmonic, Hungarian and double harmonic; pentatonic, blues and the Japanese hirajoshi, in-sen,
@@ -130,6 +130,14 @@ text* still gives you a plain readable dump.
   seed and the exact pattern, edits included; **Copy link** puts it on the clipboard, and the last
   state comes back when you reopen the page. **Undo / Redo** (Ctrl+Z, Ctrl+Shift+Z) cover Generate,
   Variation, rerolls and muted notes.
+
+**Ear** — ear training in semitones. *Intervals* (easy 3 4 5 7 12, medium, or all twelve; up, down,
+together or mixed), *Chords* (triads, plus sus and power chords, plus 7ths; played as a chord or as
+an arp), *Scales* (the common six or all 24) and *Degrees*: the tonic chord of the current key, then
+one note, and you name the scale step, which is the skill that writes melodies. Answer by click or
+from the keyboard (`1`–`9` `0` `-` `=` are 1–12 semitones or degrees, or the n-th chip), `R`
+replays, `Enter` asks the next one. A wrong answer plays the right one and then yours. Scores and
+streaks per mode stay in the browser.
 
 **Techniques** — the chip tricks that make three channels sound like a band, most with a
 *Hear it* button: chord arps, inversions for the top note, fake echo, delayed vibrato, slides,

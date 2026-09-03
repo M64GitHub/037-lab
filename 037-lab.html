@@ -141,7 +141,16 @@ h2:first-child{margin-top:0}
 .kb .wk.lit{background:linear-gradient(#fff,#5fd9e0)!important}
 .kb .bk.lit{background:linear-gradient(#243,#177)!important}
 .kbhint{display:flex; gap:14px; flex-wrap:wrap; align-items:center; font-size:11px; color:var(--faint); margin:0 0 8px}
-.kbhint b{color:var(--dim); font-weight:600} .kbhint kbd{font-family:inherit; border:1px solid var(--line2); border-radius:4px; padding:0 4px; color:var(--dim)}
+.kbhint b{color:var(--dim); font-weight:600}
+kbd{font-family:inherit; font-size:.95em; border:1px solid var(--line2); border-radius:4px; padding:0 4px; color:var(--dim)}
+/* ear trainer */
+.ear .erow{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px}
+.ear .erow .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:1px; color:var(--faint)} .ear .erow .chip+.lbl{margin-left:12px}
+.eans{display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 10px} .eans .chip{padding:6px 12px; font-size:13px}
+.eans .chip.dis{opacity:.45; cursor:default} .eans .chip.dis:hover{border-color:var(--line2)}
+.eans .chip.bad{border-color:var(--red); color:var(--red); background:var(--red-soft)} .eans .chip.bad .f{color:var(--red); opacity:.75}
+.escore{color:var(--dim); font-size:12px; margin-left:auto} .escore b{color:var(--cyan)}
+.emsg{min-height:18px; font-size:12.5px; color:var(--dim)} .emsg.ok{color:var(--cyan)} .emsg.bad{color:var(--red)}
 #midiBtn.on{border-color:var(--cyan); color:var(--cyan)}
 
 .scale-strip{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:12px}
@@ -310,6 +319,7 @@ footer{max-width:1100px; margin:0 auto; padding:0 20px 30px; color:var(--faint);
   <nav id="tabs">
     <button data-tab="scales" class="on">Scale &amp; Chords</button>
     <button data-tab="melody">Melody Lab</button>
+    <button data-tab="ear">Ear</button>
     <button data-tab="tech">Techniques</button>
     <button data-tab="theory">Theory</button>
   </nav>
@@ -411,6 +421,23 @@ footer{max-width:1100px; margin:0 auto; padding:0 20px 30px; color:var(--faint);
         <div class="hint" style="margin-top:10px" id="mMsg"></div>
       </div>
       <div class="pattern" id="mPat"></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-ear">
+    <h2>Ear training</h2>
+    <div class="hint">Hear it, name it in semitones. <b>Intervals</b>: how many semitones apart? <b>Chords</b>: which quality? <b>Scales</b>: which scale? <b>Degrees</b>: the tonic chord, then one note &mdash; which scale step is it? That last one is the melody-writing skill. Keys: <kbd>1</kbd>&ndash;<kbd>9</kbd> <kbd>0</kbd> <kbd>-</kbd> <kbd>=</kbd> answer 1&ndash;12 (the n-th chip for chords and scales), <kbd>R</kbd> replays, <kbd>Enter</kbd> asks the next one. A wrong answer plays the right one and then yours.</div>
+    <div class="chiprow" id="earModes"></div>
+    <div class="card ear">
+      <div class="erow" id="earOpts"></div>
+      <div class="erow">
+        <button class="btn primary" id="earNew">&#9656; Question</button>
+        <button class="btn" id="earReplay">Replay</button>
+        <span class="escore" id="earScore"></span>
+        <button class="btn small" id="earReset" title="Forget the scores of every mode">Reset stats</button>
+      </div>
+      <div class="eans" id="earAnswers"></div>
+      <div class="emsg" id="earMsg"></div>
     </div>
   </section>
 
@@ -851,7 +878,7 @@ function renderProgs(){
 function renderScaleTab(){
   $('#scaleTitle').textContent=`${pcname(S.root)} ${S.scale.name} \u2014 ${S.scale.iv.join(' ')}`;
   $('#scaleHint').textContent=S.scale.mood.charAt(0).toUpperCase()+S.scale.mood.slice(1)+'. Click keys or the note chips to hear them.';
-  renderKbHint(); renderKeyboard(); renderScaleStrip(); renderChordChips(); fillTopSel(); renderDegrees(); renderProgs(); renderKin();
+  renderKbHint(); renderKeyboard(); renderScaleStrip(); renderChordChips(); fillTopSel(); renderDegrees(); renderProgs(); renderKin(); renderEar();
 }
 function renderKin(){
   const el=$('#scaleKin'), {same,par}=relatedKeys();
@@ -1818,6 +1845,107 @@ function showAlternatives(cell,b){
 }
 document.addEventListener('click',e=>{ if(!e.target.closest('.ch')) $$('#mPat .alts').forEach(a=>a.remove()); });
 $('#mHarm').addEventListener('click',()=>harmonize());
+
+/* ================= ear trainer ================= */
+/* Four modes, one table. Each mode: answers(opts) = the chips (v = value, l = label, s = small text), make(opts) = a
+   question {v, ...}, play(q, t, v) = schedule it at AudioContext time t (v overrides the answer to play a wrong one)
+   and return the end time. Questions use Math.random on purpose: they are not part of the seeded generation.
+   Options and per-mode scores live in localStorage (EAR_LS), not in the share link. */
+const EAR_LS='037lab.ear';
+const EAR_SETS={
+  int:{easy:[3,4,5,7,12], medium:[2,3,4,5,7,9,10,12], all:[1,2,3,4,5,6,7,8,9,10,11,12]},
+  chd:{triads:['min','maj','dim','aug'], sus:['min','maj','dim','aug','sus2','sus4','p5'], sevenths:['min','maj','dim','aug','sus2','sus4','p5','m7','d7','maj7','m7b5','dim7']},
+  scl:{common:['major','nminor','dorian','mixo','lydian','phrygian'], all:SCALES.map(x=>x.id)}
+};
+const EAR_OPTS={               /* option groups per mode: key in EAR.opts[mode], label, choices [value, label] */
+  int:[{k:'set',l:'Set',c:[['easy','Easy 3 4 5 7 12'],['medium','Medium + 2 9 10'],['all','All 1–12']]},{k:'dir',l:'Play',c:[['asc','Up'],['desc','Down'],['harm','Together'],['mix','Mix']]}],
+  chd:[{k:'set',l:'Set',c:[['triads','Triads'],['sus','+ sus & power'],['sevenths','+ 7ths']]},{k:'how',l:'Play as',c:[['chord','Chord'],['arp','Arp'],['mix','Mix']]}],
+  scl:[{k:'set',l:'Set',c:[['common','Common six'],['all','All 24']]}],
+  deg:[]
+};
+const ri=n=>Math.floor(Math.random()*n), pick=a=>a[ri(a.length)];
+const EAR_MODES={
+  int:{name:'Intervals',
+    answers:o=>EAR_SETS.int[o.set].map(v=>({v,l:String(v),s:INTERVALS[v][1]})),
+    make:o=>({root:52+ri(16),v:pick(EAR_SETS.int[o.set]),dir:o.dir==='mix'?pick(['asc','desc','harm']):o.dir}),
+    play:(q,t,v=q.v)=>{ const a=q.root,b=q.root+v;
+      if(q.dir==='harm'){ voice(a,{t,dur:1.1,gain:.5}); voice(b,{t,dur:1.1,gain:.5}); return t+1.3; }
+      const [x,y]=q.dir==='asc'?[a,b]:[b,a]; voice(x,{t,dur:.55,gain:.7}); voice(y,{t:t+.6,dur:.7,gain:.7}); return t+1.5; }},
+  chd:{name:'Chords',
+    answers:o=>EAR_SETS.chd[o.set].map(id=>{ const c=CHORDS.find(x=>x.id===id); return {v:id,l:c.name,s:c.iv.join(' ')}; }),
+    make:o=>({root:52+ri(13),v:pick(EAR_SETS.chd[o.set]),how:o.how==='mix'?pick(['chord','arp']):o.how}),
+    play:(q,t,v=q.v)=>{ const m=CHORDS.find(x=>x.id===v).iv.map(i=>q.root+i);
+      if(q.how==='arp'){ playArp(m,1.2,null,{t,gain:.65}); return t+1.4; }
+      m.forEach(x=>voice(x,{t,dur:1.1,gain:.5})); return t+1.3; }},
+  scl:{name:'Scales',
+    answers:o=>EAR_SETS.scl[o.set].map(id=>{ const x=SCALES.find(y=>y.id===id); return {v:id,l:x.name,s:x.iv.join(' ')}; }),
+    make:o=>({root:48+ri(13),v:pick(EAR_SETS.scl[o.set])}),
+    play:(q,t,v=q.v)=>{ const iv=SCALES.find(x=>x.id===v).iv, ms=[...iv.map(i=>q.root+i),q.root+12];
+      ms.forEach((m,i)=>voice(m,{t:t+i*.19,dur:.19,gain:.7})); return t+ms.length*.19+.25; }},
+  deg:{name:'Degrees',
+    answers:()=>S.scale.iv.map((iv,i)=>({v:i,l:String(i+1),s:pcname(S.root+iv)})),
+    make:()=>({v:ri(S.scale.iv.length)}),
+    play:(q,t,v=q.v)=>{ fitChord(0,CHORDS[0],true).midis.forEach(m=>voice(m,{t,dur:.9,gain:.45}));
+      voice(rootMidi()+S.scale.iv[v],{t:t+1.1,dur:.7,gain:.75}); return t+2.0; }}
+};
+const EAR={mode:'int',opts:{int:{set:'easy',dir:'asc'},chd:{set:'triads',how:'chord'},scl:{set:'common'},deg:{}},stats:{},q:null,answered:false,last:null};
+function earStat(m){ return EAR.stats[m]||(EAR.stats[m]={ok:0,n:0,streak:0,best:0}); }
+function earSave(){ try{ localStorage.setItem(EAR_LS,JSON.stringify({mode:EAR.mode,opts:EAR.opts,stats:EAR.stats})); }catch(e){} }
+function earLoad(){
+  let d=null; try{ d=JSON.parse(localStorage.getItem(EAR_LS)||'null'); }catch(e){} if(!d||typeof d!=='object') return;
+  if(EAR_MODES[d.mode]) EAR.mode=d.mode;
+  for(const m in EAR_OPTS) for(const g of EAR_OPTS[m]){ const v=d.opts&&d.opts[m]&&d.opts[m][g.k]; if(g.c.some(c=>c[0]===v)) EAR.opts[m][g.k]=v; }
+  for(const m in EAR_MODES){ const st=d.stats&&d.stats[m]; if(st&&[st.ok,st.n,st.streak,st.best].every(Number.isInteger)) EAR.stats[m]={ok:st.ok,n:st.n,streak:st.streak,best:st.best}; }
+}
+function earLabel(v){ const a=EAR_MODES[EAR.mode].answers(EAR.opts[EAR.mode]).find(x=>x.v===v); return a?a.l+(a.s?' \u00b7 '+a.s:''):String(v); }
+function renderEar(){
+  const mode=EAR_MODES[EAR.mode], o=EAR.opts[EAR.mode];
+  if(EAR.mode==='deg'&&EAR.q&&EAR.q.v>=S.scale.iv.length){ EAR.q=null; EAR.answered=false; }
+  $('#earModes').innerHTML=Object.entries(EAR_MODES).map(([id,m])=>`<button class="chip${id===EAR.mode?' on':''}" data-mode="${id}">${m.name}</button>`).join('');
+  $$('#earModes [data-mode]').forEach(b=>b.onclick=()=>{ if(EAR.mode===b.dataset.mode) return; stopAll(); EAR.mode=b.dataset.mode; EAR.q=null; EAR.answered=false; earSave(); renderEar(); });
+  $('#earOpts').innerHTML=EAR_OPTS[EAR.mode].map(g=>`<span class="lbl">${g.l}</span>`+g.c.map(([v,l])=>`<button class="chip${o[g.k]===v?' on':''}" data-opt="${g.k}" data-v="${v}">${l}</button>`).join('')).join('')
+    ||`<span class="lbl">In the current key</span><span style="font-size:12.5px">${pcname(S.root)} ${S.scale.name} &mdash; change it in the header. The tonic chord plays first, then the note to name.</span>`;
+  $$('#earOpts [data-opt]').forEach(b=>b.onclick=()=>{ stopAll(); o[b.dataset.opt]=b.dataset.v; EAR.q=null; EAR.answered=false; earSave(); renderEar(); });
+  const list=mode.answers(o), q=EAR.q;
+  $('#earAnswers').innerHTML=list.map(a=>{ let cls='chip'; if(!q) cls+=' dis'; else if(EAR.answered){ if(a.v===q.v) cls+=' on'; else if(a.v===EAR.last) cls+=' bad'; }
+    return `<button class="${cls}" data-ans="${a.v}">${a.l}${a.s?`<span class="f">${a.s}</span>`:''}</button>`; }).join('');
+  $$('#earAnswers [data-ans]').forEach(b=>b.onclick=()=>{ const v=EAR.mode==='deg'?+b.dataset.ans:EAR.mode==='int'?+b.dataset.ans:b.dataset.ans; if(!EAR.q) earNew(); else earAnswer(v); });
+  const st=earStat(EAR.mode);
+  $('#earScore').innerHTML=st.n?`<b>${st.ok}</b> / ${st.n} &middot; streak <b>${st.streak}</b> &middot; best ${st.best}`:'no answers yet';
+  if(!q) $('#earMsg').textContent='Press Question (or Enter) to hear one.', $('#earMsg').className='emsg';
+}
+function earNew(){
+  stopAll(); const mode=EAR_MODES[EAR.mode]; EAR.q=mode.make(EAR.opts[EAR.mode]); EAR.answered=false; EAR.last=null;
+  renderEar(); $('#earMsg').textContent='Listening\u2026 pick an answer, R replays.'; $('#earMsg').className='emsg';
+  mode.play(EAR.q,audio().currentTime+.05);
+}
+function earReplay(){ if(!EAR.q) return; stopAll(); EAR_MODES[EAR.mode].play(EAR.q,audio().currentTime+.05); }
+function earAnswer(v){
+  const q=EAR.q; if(!q||EAR.answered) return;
+  const mode=EAR_MODES[EAR.mode], st=earStat(EAR.mode), right=v===q.v;
+  EAR.answered=true; EAR.last=v; st.n++; if(right){ st.ok++; st.streak++; st.best=Math.max(st.best,st.streak); } else st.streak=0;
+  earSave(); renderEar();
+  const msg=$('#earMsg');
+  if(right){ msg.textContent=`\u2713 ${earLabel(q.v)} \u2014 Enter for the next one.`; msg.className='emsg ok'; }
+  else { msg.textContent=`\u2717 It was ${earLabel(q.v)}, you said ${earLabel(v)}. Hear the right one, then yours.`; msg.className='emsg bad';
+    stopAll(); const t=audio().currentTime+.05; const t2=mode.play(q,t); mode.play(q,t2+.35,v); }
+}
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey||e.repeat) return;
+  if(!$('#tab-ear').classList.contains('on')||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
+  const k=e.key; let h=true;
+  if(k==='r'||k==='R') earReplay();
+  else if(k==='Enter'){ if(e.target.tagName==='BUTTON') return; earNew(); }
+  else { const n=k==='0'?10:k==='-'?11:k==='='?12:/^[1-9]$/.test(k)?+k:null;
+    if(n==null) h=false;
+    else { const list=EAR_MODES[EAR.mode].answers(EAR.opts[EAR.mode]);
+      const a=EAR.mode==='int'?list.find(x=>x.v===n):EAR.mode==='deg'?list.find(x=>x.v===n-1):list[n-1]; if(a) earAnswer(a.v); } }
+  if(h) e.preventDefault();
+});
+$('#earNew').addEventListener('click',()=>earNew());
+$('#earReplay').addEventListener('click',()=>earReplay());
+$('#earReset').addEventListener('click',()=>{ EAR.stats={}; earSave(); renderEar(); });
+earLoad();
 
 /* ================= demos ================= */
 function am(){const r=57;return [r,r+3,r+7];} /* A minor around A3 for demos */
