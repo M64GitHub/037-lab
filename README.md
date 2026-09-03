@@ -50,6 +50,12 @@ Schism. *Copy as text* still gives you a plain readable dump.
   `3xx` column is the value to type; speeds follow SID-Wizard's calculated-slide timing, so the
   number is tempo-aware and realistic. Untick **Hear slides** to A/B the same melody without them.
   Playback is real legato — the running note bends, nothing retriggers.
+- **Seed, share, undo** — every Generate has a seed (the *Seed* field). The same seed with the same
+  settings gives the same melody, so type one in to reproduce it, or press ↻ to hear the same seed
+  under new settings. The address bar always holds a link that restores the key, every setting, the
+  seed and the exact pattern, edits included; **Copy link** puts it on the clipboard, and the last
+  state comes back when you reopen the page. **Undo / Redo** (Ctrl+Z, Ctrl+Shift+Z) cover Generate,
+  Variation, rerolls and muted notes.
 
 **Techniques** — the chip tricks that make three channels sound like a band, most with a
 *Hear it* button: chord arps, inversions for the top note, fake echo, delayed vibrato, slides,
