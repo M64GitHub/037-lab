@@ -276,7 +276,7 @@ kbd{font-family:inherit; font-size:.95em; border:1px solid var(--line2); border-
 .lcard .body th{color:var(--dim); font-weight:500; text-transform:uppercase; font-size:10.5px; letter-spacing:1px}
 .lcard .body td b{color:var(--cyan)}
 .lcard .body .demo{margin:8px 0}
-.lcard .body ul{margin:0 0 9px 18px}
+.lcard .body ul,.lcard .body ol{margin:0 0 9px 18px}
 .lcard .body li{margin-bottom:4px}
 /* finder */
 .finder .frow{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
@@ -1983,7 +1983,30 @@ const DEMOS={
     for(let i=0;i<16;i++){
       if(i%2===0) voice(45,{t:t+i*st,dur:st*.85,gain:.7,wave:'triangle'});
       else voice(lead[(i-1)/2%8],{t:t+i*st,dur:st*.85,gain:.6});
-    } }
+    } },
+  arpRates(){ stopAll(); const ac=audio(); let t=ac.currentTime+.05; const c=am().map(m=>m+12);
+    for(const r of [12,25,50]){ playArp(c,1.0,r,{t,gain:.65}); t+=1.2; } },
+  drums(){ stopAll(); const ac=audio(); const t=ac.currentTime+.05, st=.125;   /* 120 BPM 16ths, two bars of the kit */
+    const pat={K:[0,8,10],S:[4,12],H:[0,2,6,8,10],O:[14]};
+    for(let bar=0;bar<2;bar++) for(const [d,steps] of Object.entries(pat)) for(const i of steps) DRUMS[d].play(t+(bar*16+i)*st,1); },
+  hardRestart(){ stopAll(); const ac=audio(); const t=ac.currentTime+.05, st=.11, run=[57,60,64,67,69,72,76,79];
+    run.forEach((m,i)=>voice(m,{t:t+i*st,dur:st*1.6,gain:.7}));                 /* smeared: every note rings into the next */
+    run.forEach((m,i)=>voice(m,{t:t+1.4+i*st,dur:st-.04,gain:.7})); },           /* hard restart: cut ~2 frames early, clean attacks */
+  keyChange(){ stopAll(); const ac=audio(); let t=ac.currentTime+.05; const bar=.5;
+    const loop=[[57,60,64],[53,57,60],[60,64,67],[55,59,62]];                     /* Am F C G */
+    for(const up of [0,1]){ for(const c of loop){ playArp(c.map(m=>m+12+up),bar*.95,50,{t,gain:.6}); voice(c[0]-12+up,{t,dur:bar*.9,gain:.5,wave:'triangle'}); t+=bar; } t+=.15; } },
+  secDom(){ stopAll(); const ac=audio(); let t=ac.currentTime+.05; const bar=.55;
+    const plain=[[60,64,67],[62,65,69],[55,59,62],[60,64,67]], sec=[[60,64,67],[62,66,69],[55,59,62],[60,64,67]];  /* C Dm G C, then C D G C */
+    for(const seq of [plain,sec]){ for(const c of seq){ playArp(c.map(m=>m+12),bar*.95,50,{t,gain:.6}); voice(c[0]-12,{t,dur:bar*.9,gain:.5,wave:'triangle'}); t+=bar; } t+=.25; } },
+  borrowed(){ stopAll(); const ac=audio(); let t=ac.currentTime+.05; const bar=.55;
+    const dia=[[60,64,67],[53,57,60],[55,59,62],[60,64,67]], bor=[[60,64,67],[56,60,63],[58,62,65],[60,64,67]];   /* C F G C, then C Ab Bb C */
+    for(const seq of [dia,bor]){ for(const c of seq){ playArp(c.map(m=>m+12),bar*.95,50,{t,gain:.6}); voice(c[0]-12,{t,dur:bar*.9,gain:.5,wave:'triangle'}); t+=bar; } t+=.25; } },
+  tension(){ stopAll(); const ac=audio(); const t=ac.currentTime+.05;
+    voice(71,{t,dur:.55,gain:.7}); voice(72,{t:t+.6,dur:.8,gain:.7});                                   /* leading tone → root */
+    [65,71].forEach(m=>voice(m,{t:t+1.7,dur:.6,gain:.5})); [64,72].forEach(m=>voice(m,{t:t+2.35,dur:.9,gain:.5}));   /* tritone → third */
+    [55,59,62,65].forEach(m=>voice(m,{t:t+3.6,dur:.75,gain:.42})); [60,64,67,72].forEach(m=>voice(m,{t:t+4.4,dur:1.2,gain:.45})); },  /* V7 → I */
+  fifths(){ stopAll(); const ac=audio(); const t=ac.currentTime+.05;
+    for(let n=0;n<=12;n++){ const pc=(7*n)%12; voice(60+pc,{t:t+n*.2,dur:.2,gain:.7}); } }
 };
 
 /* ================= techniques content ================= */
@@ -1992,6 +2015,11 @@ const TECH=[
 <p>Chips rarely have enough channels for real chords, so you cycle through the chord tones extremely fast on one channel. At roughly 25\u201350 notes per second the ear fuses them into one shimmering chord \u2014 the signature chiptune sound.</p>
 <p>The numbers are semitone offsets from the base note: <code>0 3 7</code> is a minor chord, <code>0 4 7</code> major, <code>0 3 6</code> diminished. Slower rates (10\u201315/s) sound like a deliberate arpeggio riff instead of a chord \u2014 both are useful.</p>
 <p>Which numbers to use on which note of your scale? That is exactly what the <b>Scale &amp; Chords</b> tab computes for you.</p>`},
+{t:'Arp rate vs tempo — where the speed comes from',d:'arpRates',b:`
+<p>Tracker arpeggios step once per <b>tick</b>, not per row, so your arp rate is the tick rate. In IT / XM / MOD: ticks per second = tempo × 2 / 5 (tempo 125 → 50 ticks/s, 150 → 60); speed is ticks per row, so speed 6 at tempo 125 gives 8.3 rows/s, i.e. 16ths at 125 BPM. On the C64 the player runs once per PAL frame, 50 times a second, and SID-Wizard and GoatTracker count arp steps in player calls — a 2× multispeed tune (100 calls/s) arps twice as fast.</p>
+<table><tr><th>tempo</th><th>ticks / s</th><th>3-note chord cycles / s</th></tr>
+<tr><td>100</td><td>40</td><td>13.3</td></tr><tr><td>125</td><td>50</td><td>16.7</td></tr><tr><td>150</td><td>60</td><td>20</td></tr><tr><td>SID 2× multispeed</td><td>100</td><td>33</td></tr></table>
+<p>25–50 notes per second fuses into a chord; 10–15 sounds like a riff. The <b>Arp</b> slider in the header is that rate in notes per second, and the exported <code>Jxy</code> runs at your song’s tick rate — at tempo 125 a 3-note chord repeats about 17 times a second, the classic sound. The demo plays one chord at 12, 25 and 50 notes per second.</p>`},
 {t:'Pick the inversion for the top note',d:'inversions',b:`
 <p>A fast arp is heard mostly by its <b>highest</b> note \u2014 it pokes out of the blur. <code>0 3 7</code>, <code>0 4 9</code> and <code>0 5 8</code> are the same minor chord, but each puts a different chord tone on top (and needs a different base note).</p>
 <p>Trick: choose inversions so the top notes of successive chords move by small steps. Your chord channel then plays a hidden second melody for free. The demo plays the same chord in all three inversions \u2014 listen to the top note climb.</p>
@@ -2007,21 +2035,47 @@ const TECH=[
 <p>Fast slide = accent. Slow slide = drama. EDM leads and basses live on this.</p>
 <p>In SID-Wizard the value sets a &ldquo;calculated&rdquo; speed, so a slide of N semitones takes about the same time at any pitch: <code>$30</code>&ndash;<code>$60</code> is the everyday portamento zone (a semitone in ~140&ndash;40 ms), <code>$08</code>&ndash;<code>$20</code> is a slow, dramatic slide, <code>$80</code> and up is a one-frame snap. Every +<code>$18</code> doubles the speed.</p>
 <p>The <b>Melody Lab</b> can place slides for you: set <b>Slides</b> to Some or Lots and Generate &mdash; the amber <code>3xx</code> column is the value to type, hover it for the glide time. Untick <b>Hear slides</b> to A/B the same melody without them.</p>`},
+{t:'Hard restart — why fast SID notes vanish',d:'hardRestart',b:`
+<p>The SID’s envelope generator has a bug: retrigger a note while the envelope is still high and the attack may not happen at all — the note is swallowed, or stumbles in late. Fast runs make it worse, and on real hardware it is unpredictable.</p>
+<p>The fix every C64 player uses is <b>hard restart</b>: two frames (about 40 ms) before the next note, close the gate and write a throwaway ADSR (GoatTracker and SID-Wizard default to <code>0F00</code>; <code>F800</code> and <code>0000</code> are the other common ones), so the envelope is guaranteed to be at the bottom when the real note starts. SID-Wizard sets it per instrument (HR value, timer 0–2 frames, normal or staccato); GoatTracker takes <code>-Axx</code> plus a gate timer.</p>
+<p>The demo fakes it on this synth: a fast run where every note rings into the next, then the same run with each note cut 40 ms early. Even without the bug, that gap is what makes fast notes sound like separate notes — a rule worth keeping in any tracker.</p>`},
 {t:'Octave bass',d:'octbass',b:`
 <p>The oldest trick in dance music and chiptune alike: alternate the bass note with the same note one octave up (<code>0 12 0 12\u2026</code>) in straight 8ths or 16ths. Instant drive, zero extra channels.</p>
 <p>Variants: octave on the off-beats only, or up two octaves every 4th hit. Triangle or 25% pulse works great.</p>`},
+{t:'Noise drums — a kit from one noise channel',d:'drums',b:`
+<p>A chip has no drum samples; it has a noise generator and pitch. Three recipes cover a kit:</p>
+<ul>
+<li><b>Kick</b> = a tone with a fast pitch drop: start near 180 Hz on a triangle or pulse and fall to 40–50 Hz within a few frames, plus one frame of noise for the click. The oldest SID drum was literally a triangle sliding down.</li>
+<li><b>Snare</b> = a short noise burst with a tone underneath. SID players step through a waveform table: a frame or two of noise, then pulse or triangle notes falling in pitch, then gate off. Keep the noise around 1–2 kHz.</li>
+<li><b>Hi-hat</b> = a very short, bright noise (20–40 ms); open hat = the same, longer.</li>
+</ul>
+<p>NES: the noise channel is a 15-bit shift register with a short mode that turns it into a buzzy 93-step tone; kicks go on the triangle, snares on noise. Game Boy: the same shift register (15-bit, or 7-bit for a pitched buzz), kicks on a pulse channel with the hardware sweep or on the wave channel with a pitch fall. Sample trackers: cut real drum samples down to a few hundred bytes and tune them with the note.</p>
+<p>The <b>Drums</b> column in the Melody Lab is exactly this kit — a shift-register noise buffer, a triangle kick with a 180 → 42 Hz drop, and one noise channel, so a snare wins over a hat on the same row. It exports as instruments 01–04.</p>`},
 {t:'Detune two channels',d:'detune',b:`
 <p>If you can spare a channel, play the lead on two channels a few cents apart (or use a fine-tune setting). The slow beating between them sounds huge \u2014 the chip version of a supersaw.</p>
 <p>Small detune (5\u201310 cents) = fat. Large detune (a quarter tone) = seasick \u2014 sometimes exactly right. Demo: single voice, then detuned pair.</p>`},
 {t:'PWM \u2014 animate the waveform',d:'pwm',b:`
 <p>A pulse wave\u2019s character depends on its duty cycle: 50% is hollow and round, 25% brassy, 12.5% thin and nasal. Sweeping the width while a note plays (PWM) makes a single channel sound alive \u2014 the classic C64/SID shimmer.</p>
-<p>In sample-based trackers, fake it by switching between pulse samples of different widths every row or two, like the demo does.</p>`},
+<p>In sample-based trackers, fake it by switching between pulse samples of different widths every row or two, like the demo does.</p>
+<p>Two speeds, two uses. A <b>slow, wide sweep</b> — on the SID the pulse width is a 12-bit value, <code>$000</code>–<code>$FFF</code>; sweeping from about 10% up to 50% and back over a second or two, with a delayed vibrato on top, is the classic C64 lead — reads as one living tone. A <b>fast, narrow wobble</b> around a thin width is a growl, the C64 bass sound. In SID-Wizard and GoatTracker the pulse table sets a width, adds a small step for n frames, subtracts it for n frames and loops. The Game Boy has only four fixed widths, so a sweep there is a stepped sequence.</p>`},
 {t:'Sidechain pump (EDM feel)',d:'pump',b:`
 <p>Duck the volume of chords and bass at every beat, then let it swell back before the next one. It creates the breathing, pumping motion of modern dance music \u2014 even with no kick drum playing at all.</p>
 <p>In a tracker: volume-slide command starting low on each beat (e.g. <code>Axx</code> ramps), or an instrument volume envelope retriggered per beat.</p>`},
 {t:'One channel, two jobs',d:'interleave',b:`
 <p>When channels are scarce, interleave: bass note on every even 16th, melody notes on the odd ones. Played fast, the ear separates them into two lines \u2014 a bassline and a lead \u2014 from a single channel.</p>
 <p>Same idea works for drums + bass (kick on the beat, bass filling between) and for self-accompanying leads. Masters of 1-channel and 2-channel chip music build entire songs this way.</p>`},
+{t:'Secondary dominants — borrow a pull',d:'secDom',b:`
+<p>Any chord can be given its own dominant: the <b>major</b> chord a fifth above it (root +7, formula <code>0 4 7</code>, or <code>0 4 7 10</code> as a 7th). Play that first and the target sounds like an arrival even when it is not the tonic. In C major the chord before G is normally D minor (degree 2); make it D <i>major</i> and it pulls into G — “five of five”.</p>
+<p>In the Melody Lab’s progression syntax: <code>1 2maj 5 1</code> or <code>6 2maj 5 1</code>; the secondary dominant of degree 6 is <code>3maj</code> (E major before A minor — the vampire chord). The forced quality shows its foreign note in red, and that bar’s melody pool includes the note, so the generator can use it.</p>
+<p>The demo plays <code>1 2 5 1</code> with the scale’s own D minor, then with D major.</p>`},
+{t:'Borrowed chords — colour from the parallel key',d:'borrowed',b:`
+<p>A song in C major can borrow from C minor — same root, other scale. The favourites: <code>b6</code> (A♭ major) and <code>b7</code> (B♭ major), the rock-and-film ending <code>1 b6 b7 1</code>; and the minor 4 (<code>4m</code>, F minor) for a sudden shadow before the tonic. Minor songs borrow back: a major 4 (Dorian brightness), or a major tonic on the very last chord.</p>
+<p>Syntax: <code>b6 b7</code> shift a degree’s root down a semitone and default to major, <code>#4</code> shifts up, <code>4m</code> forces minor. The chord cards draw borrowed digits in <span style="color:var(--red)">red</span> because they leave the scale — that is the point: the ear notices the foreign notes and hears colour, not a mistake. Keep the bass on the borrowed root so the chord is unmistakable.</p>
+<p>The demo plays <code>1 4 5 1</code>, then <code>1 b6 b7 1</code>, both in C.</p>`},
+{t:'The semitone-up key change',d:'keyChange',b:`
+<p>Copy the last chorus, move every note up one semitone (or two), and the song gets a lift without a single new idea. The pop key change works because nothing else changes: same arp formulas, same degrees, higher root — <code>0 3 7</code> stays <code>0 3 7</code>.</p>
+<p>In a tracker it is one operation: select the block and transpose (OpenMPT: <kbd>Ctrl</kbd>+<kbd>Q</kbd> / <kbd>Ctrl</kbd>+<kbd>A</kbd> per semitone). SID trackers such as GoatTracker and SID-Wizard can transpose an orderlist entry instead, so the pattern is reused untouched. Watch the chord channel: the formulas survive, but sample-based instruments may run out of range at the top.</p>
+<p>Use it once and late — the last chorus or the final loop — and keep the drums in place so the lift is heard as a lift, not as a pitch wobble. The demo plays a 4-chord loop, then the same loop one semitone up.</p>`},
 {t:'Instrument design beats note count',b:`
 <p>A lot of \u201cchiptune magic\u201d is in the instrument, not the pattern: a fast pitch drop at note start makes a kick out of any voice; a couple of frames of noise before a tone makes a snare or a pluck; a tiny downward pitch envelope makes bass punchy.</p>
 <p>Build a small library: pluck, soft lead, hard lead, bass, kick, snare, hat \u2014 each just an envelope + waveform recipe. Then writing music becomes fast.</p>`},
@@ -2050,6 +2104,11 @@ function intervalTable(){
   return '<table><tr><th>+semi</th><th>name</th><th>character</th><th></th></tr>'+
    INTERVALS.map(([s,n,c])=>`<tr><td><b>${s}</b></td><td>${n}</td><td>${c}</td><td><button class="btn small" data-int="${s}">\u25b8</button></td></tr>`).join('')+'</table>';
 }
+function fifthsTable(){
+  let h='<table><tr><th>steps</th><th>key (+7 each)</th><th>the note that changes</th><th>relative minor</th></tr>';
+  for(let n=0;n<12;n++){ const k=(7*n)%12; h+=`<tr><td>${n}</td><td><b>${pcname(k)} major</b> · +${k}</td><td>${n?`${pcname(k+11)} was ${pcname(k+10)}`:'—'}</td><td>${pcname(k+9)} minor</td></tr>`; }
+  return h+'</table>';
+}
 const THEORY=[
 {t:'Semitones \u2014 the only unit you need',b:`
 <p>One semitone = one row in your tracker\u2019s note column = one key on a piano (black and white counted equally). Every interval, chord and scale is just a pattern of semitone distances \u2014 which is why tracker arps are written as numbers like <code>0 3 7</code>.</p>
@@ -2066,6 +2125,11 @@ ${intervalTable()}
 <li>Notes <i>outside</i> the scale aren\u2019t forbidden \u2014 they\u2019re spice. Used briefly, on weak beats, passing between two scale notes, they add sophistication (chromatic passing tones).</li>
 </ul>
 <p>Changing the root of the same scale type = <b>transposing</b>. The pattern of numbers never changes; in a tracker you just shift every note by the same amount.</p>`},
+{t:'The circle of fifths — counting by 7',d:'fifths',b:`
+<p>Move a key up a perfect fifth (+7, which is the same as −5) and you get its nearest neighbour: the new scale keeps six of the old seven notes and raises just one by a semitone. Do that twelve times and you are back home — that is the circle of fifths, and in semitones it is nothing more than counting by 7.</p>
+${fifthsTable()}
+<p>What it buys you: a melody in C also works over G or F (one note away), so the smoothest key change is to a neighbour. Keys on the far side of the circle (six steps, a tritone away: C and F#) share almost nothing — that is the “everything changed” modulation. Relative minor = major root − 3 (C major and A minor are the same notes); parallel = same root, other third (C major and C minor differ in three notes).</p>
+<p>In the app: the chips under the scale title on the <b>Scale &amp; Chords</b> tab list every key that shares the current notes, plus the parallel key. The demo walks the circle from C.</p>`},
 {t:'Chords \u2014 why it is NOT always 0 3 7',b:`
 <p>A basic chord (triad) = root + a third + a fifth. But \u201ca third\u201d comes in two sizes: minor (+3) or major (+4). And the fifth is usually +7, sometimes +6 or +8. So:</p>
 <table>
@@ -2101,6 +2165,14 @@ ${intervalTable()}
 <p>Chords have jobs. The chord on degree 1 (<b>tonic</b>) is home. Degree 5 (<b>dominant</b>) creates pull back home. Degree 4 (<b>subdominant</b>) is the scenic route between them. Most songs are just clever trips away from home and back.</p>
 <p>Write progressions as scale degrees and they work in every key: 1\u20115\u20116\u20114 is the modern pop anthem, 1\u20116\u20114\u20115 the 50s/8-bit classic, 1\u20117\u20116\u20117 the synthwave loop. The Scale &amp; Chords tab spells them out with real notes and formulas for your current key \u2014 press play and steal what you like.</p>
 <p>Guidelines, not laws: one chord per bar is a fine default; change chords on strong beats; end sections on degree 1 (or hang on degree 5 to demand a next part). Repeating a 4-chord loop for a whole track is completely legitimate \u2014 ask any rave anthem.</p>`},
+{t:'Tension and release',d:'tension',b:`
+<p>Music moves because some notes want to go somewhere. Three engines of that pull, in semitones:</p>
+<ul>
+<li><b>The leading tone.</b> +11 sits one semitone under the root and leans on it: 11 → 12 is the strongest “home” gesture there is. Natural minor has no leading tone (its 7th is +10), which is why harmonic minor raises it to +11 for cadences — and why so many minor songs put a <i>major</i> chord on degree 5.</li>
+<li><b>The tritone.</b> Two notes 6 semitones apart (in C major: F and B) are as unstable as it gets. They hide inside the dominant 7th (<code>0 4 7 10</code> on degree 5: G B D F) and resolve by each moving one semitone — B up to C, F down to E — so the tritone melts into the tonic third.</li>
+<li><b>Suspensions.</b> Hold a note that is not in the new chord (<code>0 5 7</code> sus4 instead of <code>0 4 7</code>), then let it fall onto the chord tone. The wait is the tension, the drop is the release.</li>
+</ul>
+<p>The demo plays all three: leading tone → root, tritone → third, then <b>V7 → I</b>. Chorus-lift recipe for the Melody Lab: make the bar before it a dominant 7th — progression <code>1 4 57 1</code>, or in minor <code>1 6 4 57</code> (a major 7th chord on degree 5 brings the leading tone back).</p>`},
 {t:'Writing melodies that work',b:`
 <p>The two ingredients of a melody note: <b>is it in the current chord?</b> and <b>is it on a strong beat?</b> Chord tones on strong beats (rows 0, 4, 8, 12 of a 16-step bar) make the melody sound anchored. Non-chord scale notes are passing/neighbour tones \u2014 put them between chord tones, on weak beats.</p>
 <ul>
@@ -2111,6 +2183,15 @@ ${intervalTable()}
 <li><b>Land the last note.</b> End on the root for closure, on the 5th for \u201cto be continued\u201d, on the 3rd for bittersweet.</li>
 </ul>
 <p>The Melody Lab follows exactly these rules when generating \u2014 use it for raw material, then edit: reroll notes you dislike, mute a few into rests, and keep the phrase you\u2019d hum.</p>`},
+{t:'Harmonizing a melody — which chords fit',b:`
+<p>You have a melody and need chords under it. Bar by bar:</p>
+<ol>
+<li>Write down the notes on the strong rows (0 and 8 first, then 4 and 12). The chord must contain those — long notes weigh more, row 0 weighs most.</li>
+<li>Try the scale’s own triad on every degree (the cards on the <b>Scale &amp; Chords</b> tab) and count how many of the strong notes each one holds.</li>
+<li>Between candidates, prefer the one that shares notes with the previous chord (smooth) or whose root is a fourth or fifth away (strong motion: 4 → 5 → 1, 6 → 2 → 5 → 1).</li>
+<li>Start on degree 1, end on degree 1, and put degree 5 right before the end.</li>
+</ol>
+<p>A strong-row note that fits no chord is usually a passing tone in disguise — move it to a weak row, or keep the rub on purpose. The <b>Suggest chords</b> button in the Melody Lab runs exactly this scoring over every bar at once (a Viterbi search, if you like names) and writes the result into the progression text; the alternatives per bar are one click away in the <b>Chord</b> column.</p>`},
 {t:'Rhythm &amp; groove',b:`
 <p>In 4/4 with 16 rows per bar: rows 0 and 8 are the strong beats, 4 and 12 the medium ones, everything else is weak. Notes on weak positions \u2014 especially just <i>before</i> a strong beat \u2014 create <b>syncopation</b>, the engine of all dance music.</p>
 <ul>
@@ -2120,12 +2201,17 @@ ${intervalTable()}
 <li>Shuffle/swing: delay every second 16th slightly (tracker groove/speed settings) \u2014 turns a stiff pattern human.</li>
 </ul>`},
 {t:'Cheat sheet',b:`
-<p><b>Chords:</b> <code>0 4 7</code> maj \u00b7 <code>0 3 7</code> min \u00b7 <code>0 3 6</code> dim \u00b7 <code>0 4 8</code> aug \u00b7 <code>0 2 7</code> sus2 \u00b7 <code>0 5 7</code> sus4 \u00b7 <code>0 7</code> power \u00b7 <code>0 4 7 10</code> 7 \u00b7 <code>0 3 7 10</code> m7 \u00b7 <code>0 4 7 11</code> maj7 \u00b7 <code>0 4 7 9</code> 6 \u00b7 <code>0 4 7 14</code> add9</p>
-<p><b>Minor inversions:</b> <code>0 3 7 \u2192 0 4 9 \u2192 0 5 8</code> &ensp; <b>Major inversions:</b> <code>0 4 7 \u2192 0 3 8 \u2192 0 5 9</code></p>
-<p><b>Scales:</b> Major <code>0 2 4 5 7 9 11</code> \u00b7 Minor <code>0 2 3 5 7 8 10</code> \u00b7 Min pent <code>0 3 5 7 10</code> \u00b7 Maj pent <code>0 2 4 7 9</code> \u00b7 Blues <code>0 3 5 6 7 10</code></p>
-<p><b>Progressions (degrees):</b> 1\u20115\u20116\u20114 \u00b7 6\u20114\u20111\u20115 \u00b7 1\u20116\u20114\u20115 \u00b7 1\u20117\u20116\u20117 \u00b7 2\u20115\u20111</p>
-<p><b>Transpose:</b> everything +n semitones = same music, new key. Relative minor = major root \u2212 3.</p>
-<p><b>Strong rows (16/bar):</b> 0 &gt; 8 &gt; 4, 12 &gt; the rest. Chord tones on strong rows, passing tones between.</p>`}
+<p><b>Chords:</b> <code>0 4 7</code> maj · <code>0 3 7</code> min · <code>0 3 6</code> dim · <code>0 4 8</code> aug · <code>0 2 7</code> sus2 · <code>0 5 7</code> sus4 · <code>0 7</code> power · <code>0 4 7 10</code> 7 · <code>0 3 7 10</code> m7 · <code>0 4 7 11</code> maj7 · <code>0 3 6 10</code> m7♭5 · <code>0 3 6 9</code> dim7 · <code>0 4 7 9</code> 6 · <code>0 3 7 9</code> m6 · <code>0 4 7 14</code> add9</p>
+<p><b>Minor inversions:</b> <code>0 3 7 → 0 4 9 → 0 5 8</code> &ensp; <b>Major inversions:</b> <code>0 4 7 → 0 3 8 → 0 5 9</code> &ensp; a fast arp is heard by its top note.</p>
+<p><b>Scales:</b> Major <code>0 2 4 5 7 9 11</code> · Natural minor <code>0 2 3 5 7 8 10</code> · Harmonic minor <code>0 2 3 5 7 8 11</code> · Dorian <code>0 2 3 5 7 9 10</code> · Mixolydian <code>0 2 4 5 7 9 10</code> · Lydian <code>0 2 4 6 7 9 11</code> · Phrygian <code>0 1 3 5 7 8 10</code> · Phrygian dominant <code>0 1 4 5 7 8 10</code> · Min pent <code>0 3 5 7 10</code> · Maj pent <code>0 2 4 7 9</code> · Blues <code>0 3 5 6 7 10</code> · Hirajoshi <code>0 2 3 7 8</code> · In-sen <code>0 1 5 7 10</code> · Whole tone <code>0 2 4 6 8 10</code> · all 24 are in the header.</p>
+<p><b>Keys:</b> +7 = the neighbour key (one note changes) · relative minor = major root − 3 · parallel = same root, other third · everything +1 = the pop key change, formulas unchanged.</p>
+<p><b>Progressions (degrees):</b> 1‑5‑6‑4 · 6‑4‑1‑5 · 1‑6‑4‑5 · 1‑7‑6‑7 · 2‑5‑1 · secondary dominant 1‑2maj‑5‑1 · borrowed 1‑b6‑b7‑1</p>
+<p><b>Progression syntax (Melody Lab):</b> <code>1 5 6 4</code> digits snap to the scale · <code>i VI III VII</code> roman say their quality · suffixes <code>57</code> <code>2m7</code> <code>4maj7</code> <code>1sus4</code> <code>7dim</code> · <code>b6 b7 #4</code> shift the root a semitone (major unless told otherwise) · <code>-</code> repeats · up to 8 chords, one bar each.</p>
+<p><b>Tracker commands the app exports:</b> chord arp <code>Jxy</code> (IT, offsets x and y above the note) = <code>07nn</code> chord select (SID-Wizard) · tone portamento <code>Gxx</code> (IT, xx/16 semitone per tick) = <code>03xx</code> (SID-Wizard speed) · drums as <code>C-5</code> with instrument <code>01</code> kick <code>02</code> snare <code>03</code> hat <code>04</code> open hat · <code>===</code> note off (IT).</p>
+<p><b>Strong rows (16/bar):</b> 0 &gt; 8 &gt; 4, 12 &gt; the rest. Chord tones on strong rows, passing tones between. Ticks per second in IT/XM = tempo × 2 / 5; speed = ticks per row.</p>
+<p><b>Melody Lab keys:</b> click a cell · <kbd>↑</kbd><kbd>↓</kbd> scale step (<kbd>Shift</kbd> octave, <kbd>Alt</kbd> semitone) · <kbd>R</kbd> reroll · <kbd>Del</kbd> rest · <kbd>Enter</kbd> note · <kbd>+</kbd> <kbd>−</kbd> length · <kbd>S</kbd> slide · <kbd>←</kbd><kbd>→</kbd> <kbd>Tab</kbd> move · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Space</kbd> play.</p>
+<p><b>Scale &amp; Chords:</b> <kbd>Z</kbd>–<kbd>/</kbd> and <kbd>Q</kbd>–<kbd>P</kbd> play the keyboard, <kbd>[</kbd> <kbd>]</kbd> octave · Finder takes <code>0 5 9</code>, <code>C E G</code>, <code>C-4 E-4 G-4</code> or picked keys · Top note lights the inversion that puts it on top.</p>
+<p><b>Ear:</b> <kbd>1</kbd>–<kbd>9</kbd> <kbd>0</kbd> <kbd>-</kbd> <kbd>=</kbd> answer · <kbd>R</kbd> replay · <kbd>Enter</kbd> next.</p>`}
 ];
 
 /* ================= learn renderer ================= */

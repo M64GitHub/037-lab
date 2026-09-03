@@ -140,11 +140,17 @@ replays, `Enter` asks the next one. A wrong answer plays the right one and then 
 streaks per mode stay in the browser.
 
 **Techniques** — the chip tricks that make three channels sound like a band, most with a
-*Hear it* button: chord arps, inversions for the top note, fake echo, delayed vibrato, slides,
-octave bass, detune, PWM, sidechain pump, one channel doing two jobs, arrangement in 4s and 8s.
+*Hear it* button: chord arps and where the arp rate comes from (ticks, tempo, multispeed),
+inversions for the top note, fake echo, delayed vibrato, slides, hard restart, octave bass, noise
+drums, detune, PWM (slow sweeps vs fast wobble), sidechain pump, one channel doing two jobs,
+secondary dominants, borrowed chords, the semitone-up key change, instrument design, arrangement
+in 4s and 8s.
 
-**Theory** — semitones as the only unit, scales as a palette, why chords aren't always `0 3 7`,
-inversions, progressions, writing melodies that work, rhythm & groove, and a cheat sheet.
+**Theory** — semitones as the only unit, scales as a palette, the circle of fifths as counting by 7,
+why chords aren't always `0 3 7`, inversions, progressions, tension and release (leading tone,
+tritone, suspensions), writing melodies that work, harmonizing a melody, rhythm & groove, and a
+cheat sheet that covers every formula, the progression syntax, the exported tracker commands and
+every keyboard shortcut in the app.
 
 ## Conventions
 
