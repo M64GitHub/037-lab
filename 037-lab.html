@@ -314,6 +314,7 @@ footer{max-width:1100px; margin:0 auto; padding:0 20px 30px; color:var(--faint);
       <label>Arp <input type="range" id="arpRate" min="8" max="60" value="30" step="1"><span class="val" id="arpRateVal">30/s</span></label>
       <label>Vol <input type="range" id="vol" min="0" max="100" value="70"></label>
       <button class="btn small" id="midiBtn" hidden title="Play the keyboard from a MIDI device (asks the browser for MIDI access)">MIDI</button>
+      <button class="btn small" id="resetBtn" title="Forget every saved setting and the pattern and start from the defaults (Ear scores are kept)">Reset</button>
     </div>
   </div>
   <nav id="tabs">
@@ -1680,6 +1681,15 @@ $('#mLink').addEventListener('click',()=>{
     .then(()=>{$('#mMsg').textContent='Link copied — it restores the key, every setting, the seed and this exact pattern.';})
     .catch(()=>{$('#mMsg').textContent='Clipboard blocked — copy the address bar instead.';});
 });
+/* --- reset: drop the saved state (hash + localStorage) and reload, so init falls through to the defaults;
+   the Ear tab's own key (EAR_LS) is left alone --- */
+function resetState(){
+  clearTimeout(saveT);
+  try{ localStorage.removeItem(LS_KEY); }catch(e){}
+  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
+  location.reload();
+}
+$('#resetBtn').addEventListener('click',()=>{ if(confirm('Reset the key, every setting and the pattern to the defaults?')) resetState(); });
 $('.ctlcard').addEventListener('change',saveState);
 document.addEventListener('keydown',e=>{
   if(!(e.ctrlKey||e.metaKey) || !$('#tab-melody').classList.contains('on')) return;

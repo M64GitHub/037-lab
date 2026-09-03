@@ -27,10 +27,11 @@ noise for the drums. Chrome, Firefox and Safari work; Web MIDI needs Chrome, Edg
 
 ## The five tabs
 
-The header holds the **root, scale, waveform, arp rate and volume** for everything below, and a
-**MIDI** button where the browser supports it. The address bar always holds a link that restores
-the key, every setting, the seed and the exact pattern (**Copy link** puts it on the clipboard),
-and the last state comes back when you reopen the page.
+The header holds the **root, scale, waveform, arp rate and volume** for everything below, a
+**MIDI** button where the browser supports it, and **Reset**. The address bar always holds a link
+that restores the key, every setting, the seed and the exact pattern (**Copy link** puts it on the
+clipboard), and the last state comes back when you reopen the page. **Reset** forgets all of that
+and reloads with the defaults (A minor, a fresh pattern); the Ear tab's scores are kept.
 
 ### Scale & Chords
 - **24 scales** in four families (the modes; harmonic, melodic, Hungarian, double harmonic and
