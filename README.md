@@ -62,8 +62,13 @@ tracker does:
   come back as cells and slides; other effects are counted and ignored; more than one channel in
   the text uses the first. Drums map by instrument number 01–04, or by pitch (C kick, D snare, F#
   hat, A# open hat) when there is none. If the browser will not hand over the clipboard, a text box
-  appears to paste into. Your melody then gets the current progression under it, plus a generated
-  bass, arp and drums — edit, play and export it back. Chord arps and a triangle octave bass come along for the ride, each in its own column so you
+  appears to paste into. Your melody then gets chords suggested from its notes, plus a generated
+  bass, arp and drums — edit, play and export it back.
+- **Suggest chords** — harmonizes whatever is in the Melody column: for every bar it scores the
+  chords of the scale by how well they fit the notes (strong steps and long notes weigh more, a
+  hand-made bass line counts as the root), then picks a sequence that moves well and lands on the
+  tonic. The result becomes the progression text. Click any chord in the **Chord** column to see the
+  best alternatives for that bar and swap one in; Ctrl+Z takes it back. Chord arps and a triangle octave bass come along for the ride, each in its own column so you
 see exactly what plays under the melody, and each column has **IT** / **SWM** buttons in its
 header that copy it to the clipboard in OpenMPT's `ModPlug Tracker  IT` text or DUET's `DUET SW`
 format, slides included (`Gxx` / `03xx`), ready to paste into DUET, OpenMPT or Schism. *Copy as
@@ -84,7 +89,7 @@ text* still gives you a plain readable dump.
   | --- | --- |
   | `1 5 6 4` | scale degrees, snapped to the scale: whatever triad the scale gives on that degree |
   | `i VI III VII` · `I V vi IV` | roman numerals mean what they say: upper = major, lower = minor, whatever the scale |
-  | `5 7` · `V7` · `2m7` · `1maj7` · `4sus4` · `7dim` | a suffix forces the shape: `m maj dim aug sus2 sus4 5 7 m7 maj7 m7b5 dim7 6 m6 add9` |
+  | `57` · `V7` · `2m7` · `1maj7` · `4sus4` · `7dim` | a suffix forces the shape: `m maj dim aug sus2 sus4 5 7 m7 maj7 m7b5 dim7 6 m6 add9` |
   | `b6 b7` · `#4dim` · `bVI` | `b`/`#` shift the root a semitone — borrowed chords; digits that leave the scale show **red** |
   | `1 - 5 -` | `-` holds the previous chord for another bar |
 

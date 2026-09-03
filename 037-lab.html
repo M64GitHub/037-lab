@@ -221,6 +221,13 @@ h2:first-child{margin-top:0}
 #mPat.no-drums .dr{opacity:.35}
 #mPat.noslide .fx{opacity:.35; text-decoration:line-through}
 .prow .ch{color:var(--faint); font-size:11.5px; text-align:right}
+.prow .ch.pick{cursor:pointer; position:relative}
+.prow .ch.pick:hover{color:var(--cyan)}
+.alts{position:absolute; right:0; top:19px; z-index:3; background:var(--panel2); border:1px solid var(--line2); border-radius:8px; padding:6px; min-width:210px; text-align:left; box-shadow:0 8px 24px rgba(0,0,0,.45); cursor:default}
+.alts .t{font-size:10px; color:var(--faint); text-transform:uppercase; letter-spacing:.06em; padding:2px 6px 4px}
+.alts button{display:flex; align-items:center; gap:8px; width:100%; background:none; border:0; color:var(--ink); font:12px var(--mono); padding:4px 6px; border-radius:5px; cursor:pointer; text-align:left}
+.alts button:hover{background:var(--cyan-soft)} .alts button.cur{color:var(--cyan)}
+.alts button .f{color:var(--faint); font-size:11px} .alts .bar{height:4px; background:var(--cyan); border-radius:2px; opacity:.7; margin-left:auto}
 .prow.beat{background:rgba(255,255,255,.028)}
 .prow.bar{border-top:1px solid var(--line)}
 .prow.cur{background:rgba(95,217,224,.16)}
@@ -343,6 +350,7 @@ footer{max-width:1100px; margin:0 auto; padding:0 20px 30px; color:var(--faint);
         <div class="btns">
           <button class="btn primary" id="mGen">Generate</button>
           <button class="btn" id="mVar">Variation</button>
+          <button class="btn" id="mHarm" title="Suggest a chord per bar from the notes (the Chord column then offers alternatives per bar)">Suggest chords</button>
           <button class="btn playstop" id="mPlay">Play</button>
           <button class="btn" id="mUndo" title="Undo (Ctrl+Z)">Undo</button>
           <button class="btn" id="mRedo" title="Redo (Ctrl+Shift+Z)">Redo</button>
@@ -927,7 +935,7 @@ function parseProg(text,{wrap=false}={}){
   if(toks.length>8) return {error:'Up to 8 chords (one bar each).'};
   for(const tok of toks){
     if(tok==='-'){ if(!specs.length) return {error:'"-" repeats the previous chord — nothing before it.'}; specs.push({...specs[specs.length-1],tok}); continue; }
-    const m=/^([b#]?)(\d+|[ivIV]+)(.*)$/.exec(tok); if(!m) return {error:`Can't read "${tok}".`};
+    const m=/^([b#]?)(\d|[ivIV]+)(.*)$/.exec(tok); if(!m) return {error:`Can't read "${tok}".`};   // one digit: 57 is degree 5 with a 7
     const acc=m[1]==='b'?-1:m[1]==='#'?1:0, roman=/^[ivIV]+$/.test(m[2]);
     let deg, quality=null;
     if(roman){ const r=ROMAN[m[2].toLowerCase()]; if(r==null) return {error:`"${m[2]}" is not a roman numeral I–VII.`}; deg=r; quality=m[2]===m[2].toUpperCase()?'maj':'min'; }
@@ -1058,7 +1066,8 @@ function renderPattern(){
     row.dataset.step=i;
     const hex=i.toString(16).toUpperCase().padStart(2,'0');
     const ch=(i%16===0)?(()=>{const f=MEL.chords[i/16];const nm=pcname(f.rootNote);const lb=chordLabel(f.rel);return nm+(lb!==null?lb:'')+ ' ‹'+f.rel.map((r,k)=>f.out[k]?`<span class="o">${r}</span>`:f.adj[k]?`<span class="a">${r}</span>`:r).join(' ')+'›';})():'';
-    row.innerHTML=`<span class="st">${hex}</span>`+COLS.map(col=>cellHTML(col,col.cells(),i)).join('')+`<span class="ch">${ch}</span>`;
+    row.innerHTML=`<span class="st">${hex}</span>`+COLS.map(col=>cellHTML(col,col.cells(),i)).join('')+`<span class="ch${ch?' pick':''}"${ch?' title="click for other chords that fit this bar"':''}>${ch}</span>`;
+    if(ch) row.querySelector('.ch').addEventListener('click',e=>{ if(e.target.closest('.alts')) return; showAlternatives(row.querySelector('.ch'),i/16); });
     for(const col of COLS){
       if(!col.edit) continue;
       const ncell=row.querySelector(`[data-col="${col.id}"]`);
@@ -1263,10 +1272,11 @@ function fillMelodyProg(){
 }
 function syncPresetSelect(){ const i=PROGS.findIndex(p=>presetText(p)===PROG.text.trim().replace(/\s+/g,' ')); $('#mProg').value=i>=0?String(i):'custom'; }
 // set the progression from text: parse, report, and re-chord the pattern on screen (bass and arp follow; the melody stays)
-function setProgression(text,{rechord=true}={}){
+function setProgression(text,{rechord=true,undo=true}={}){
   const r=parseProg(text), inp=$('#mProgText');
   inp.value=text; inp.classList.toggle('bad',!!r.error);
   if(r.error){ $('#mMsg').textContent=r.error; return false; }
+  if(undo&&rechord&&MEL.cells.length&&text.trim().replace(/\s+/g,' ')!==PROG.text) pushUndo();
   PROG.text=text.trim().replace(/\s+/g,' '); PROG.specs=r.specs; inp.value=PROG.text;
   syncPresetSelect(); renderProgs();
   if(rechord&&MEL.cells.length){ MEL.chords=[]; for(let b=0;b<MEL.bars;b++) MEL.chords.push(barChord(b)); if(!MEL.dirty.bass) MEL.bass=genBass(MEL.chords); regenArp(); renderPattern(); if(MEL.playing) playMelody(); }
@@ -1319,6 +1329,7 @@ const ctlKey=id=>{ const k=id.slice(1).toLowerCase(); return ctlAlias[k]||k; };
 function appState(){
   const o={r:S.root,s:S.scale.id,w:S.wave,a:S.arpRate};
   for(const id of MCTL){ const el=document.getElementById(id); o[ctlKey(id)]=el.type==='checkbox'?(el.checked?1:0):el.value; }
+  o.prog=PROG.text;                                   // the last valid progression, not whatever the field holds
   o.seed=seedHex(MEL.seed);
   if(MEL.cells.length) o.pat=encodeCells(MEL.cells);
   if(MEL.dirty.bass) o.bpat=encodeCells(MEL.bass);
@@ -1371,13 +1382,14 @@ function restorePattern(p){
   renderPattern(); return true;
 }
 /* --- undo / redo: snapshots of the pattern (cells, bass, seed); the controls are not part of it --- */
-const snapshot=()=>JSON.stringify({cells:MEL.cells,bass:MEL.bass,drums:MEL.drums,seed:MEL.seed,dirty:MEL.dirty,sel:MEL.sel});
+const snapshot=()=>JSON.stringify({cells:MEL.cells,bass:MEL.bass,drums:MEL.drums,seed:MEL.seed,dirty:MEL.dirty,sel:MEL.sel,prog:PROG.text});
 function undoBtns(){ $('#mUndo').disabled=!MEL.hist.length; $('#mRedo').disabled=!MEL.redo.length; }
 function pushUndo(){ MEL.hist.push(snapshot()); if(MEL.hist.length>100) MEL.hist.shift(); MEL.redo.length=0; undoBtns(); }
 function applySnap(s){
   const o=JSON.parse(s);
   if(MEL.playing&&o.cells.length!==MEL.cells.length) stopMelody();
   MEL.cells=o.cells; MEL.bass=o.bass; MEL.drums=o.drums||MEL.drums; MEL.seed=o.seed; MEL.dirty=o.dirty||{bass:false,drums:false}; MEL.sel=o.sel||null; MEL.bars=MEL.cells.length/16;
+  if(o.prog&&o.prog!==PROG.text) setProgression(o.prog,{rechord:false,undo:false});
   $('#mSeed').value=seedHex(MEL.seed); setLenSelect(MEL.cells.length);
   MEL.chords=[]; for(let b=0;b<MEL.bars;b++) MEL.chords.push(barChord(b)); regenArp(); if(!o.drums) regenDrums();
   renderPattern(); undoBtns();
@@ -1470,7 +1482,7 @@ function importText(text,colId){
     MEL.chords=[]; for(let b=0;b<bars;b++) MEL.chords.push(barChord(b));
     if(lenChanged||!MEL.dirty.bass) MEL.bass=genBass(MEL.chords); regenArp(); if(lenChanged||!MEL.dirty.drums) regenDrums();
     if(lenChanged){ MEL.dirty={bass:false,drums:false}; notes.push('bass and drums regenerated for the new length'); }
-    notes.push('chords: the current progression');
+    const hz=harmonize({apply:true,quiet:true}); notes.push(hz?'chords suggested from the notes (click a chord for alternatives)':'chords: the current progression');
   } else {
     const n=MEL.cells.length, fit=cells.slice(0,n); while(fit.length<n) fit.push({type:'rest'});
     if(col.id==='bass'){ MEL.bass=fit; MEL.dirty.bass=true; } else { MEL.drums=fit; MEL.dirty.drums=true; }
@@ -1493,6 +1505,80 @@ function importColumn(colId){
 $('#mPaste').addEventListener('click',()=>importColumn('mel'));
 $('#mPasteGo').addEventListener('click',()=>importText($('#mPasteText').value,IMPORT_TARGET));
 $('#mPasteCancel').addEventListener('click',()=>{ $('#mPasteBox').hidden=true; });
+
+/* ================= harmonize ================= */
+/* Chord suggestions from the notes. Candidates: the snapped triad on every scale degree, plus the snapped 7th when
+   it is a shape the progression syntax can name. A bar scores its candidates by chord-tone weight (strong steps and
+   long notes count more, non-chord tones on strong steps cost), a hand-made bass adds root weight; a Viterbi pass
+   over the bars adds common-tone / fifth-motion bonuses, tonic bonuses at the ends and a dominant bonus before the
+   end. The result is written into the progression text, so the text stays the truth. */
+const SFX_OF={min:'m',maj:'maj',dim:'dim',aug:'aug',sus2:'sus2',sus4:'sus4',p5:'5',d7:'7',m7:'m7',maj7:'maj7',m7b5:'m7b5',dim7:'dim7','6':'6',m6:'m6',add9:'add9'};
+function harmCandidates(){
+  const L=S.scale.iv.length, out=[];
+  for(let d=0;d<L;d++){
+    out.push({tok:String(d+1),deg:d,f:fitChord(d,CHORDS[0],true),tier:0});
+    if(L===7){ const f=fitChord(d,CHORDS.find(c=>c.id==='m7'),true), c=CHORDS.find(c=>c.iv.length===4&&c.iv.every((v,i)=>v===f.rel[i]));
+      if(c&&SFX_OF[c.id]) out.push({tok:String(d+1)+SFX_OF[c.id],deg:d,f,tier:1}); }
+  }
+  return out;
+}
+function harmBarScore(b,cand){
+  const pcs=cand.f.midis.map(m=>m%12), tri=pcs.slice(0,3), sevPc=pcs[3], rootPc=cand.f.rootNote%12, fifthPc=(cand.f.rootNote+7)%12; let sc=0;
+  for(let i=b*16;i<b*16+16;i++){
+    const c=MEL.cells[i]; if(!c||c.type!=='note') continue;
+    const pos=i%16, w=(pos===0||pos===8?3:pos%4===0?2.5:pos%2===0?1.2:.8)*Math.min(4,noteLen(MEL.cells,i)), pc=c.midi%12;
+    if(tri.includes(pc)) sc+=w; else if(pc===sevPc) sc+=.5*w; else sc-=pos%4===0?.7*w:.25*w;
+    if(pos===0&&pc===rootPc) sc+=1.5;
+  }
+  // the root and the third on strong steps say which chord it is (I and vi share two notes; the root breaks the tie)
+  const strongPcs=[0,4,8,12].map(k=>MEL.cells[b*16+k]).filter(c=>c&&c.type==='note').map(c=>c.midi%12);
+  if(strongPcs.includes(rootPc)) sc+=1.2; if(strongPcs.includes(pcs[1])) sc+=.4;
+  if(MEL.dirty.bass) for(let i=b*16;i<b*16+16;i++){ const c=MEL.bass[i]; if(!c||c.type!=='note') continue; const pc=c.midi%12; sc+=pc===rootPc?4:pc===fifthPc?1:pcs.includes(pc)?.5:-2; }
+  return sc-(cand.tier?2.5:0);
+}
+function harmTrans(a,b,bar,bars){
+  const L=S.scale.iv.length; let t=0;
+  if(a){ const pa=a.f.midis.slice(0,3).map(m=>m%12), pb=b.f.midis.slice(0,3).map(m=>m%12); t+=.3*pb.filter(p=>pa.includes(p)).length;
+    const mv=((b.f.rootNote-a.f.rootNote)%12+12)%12; if(mv===5||mv===7) t+=.6; if(a.deg===b.deg&&bars>1) t-=.6; }
+  if(bar===0&&b.deg===0) t+=1.5;
+  if(bar===bars-1&&b.deg===0) t+=1.5;
+  if(L===7&&bars>1&&bar===bars-2&&b.deg===4) t+=1;
+  return t;
+}
+function harmonize({apply=true,quiet=false}={}){
+  if(!MEL.cells.length) return null;
+  const bars=MEL.bars, C=harmCandidates(), n=C.length;
+  const score=[],back=[];
+  for(let b=0;b<bars;b++){ score[b]=[]; back[b]=[];
+    for(let k=0;k<n;k++){ const own=harmBarScore(b,C[k]); let best=-1e9,bj=-1;
+      if(b===0){ best=harmTrans(null,C[k],0,bars); } else for(let j=0;j<n;j++){ const v=score[b-1][j]+harmTrans(C[j],C[k],b,bars); if(v>best){best=v;bj=j;} }
+      score[b][k]=own+best; back[b][k]=bj; } }
+  let k=score[bars-1].indexOf(Math.max(...score[bars-1])); const pick=[];
+  for(let b=bars-1;b>=0;b--){ pick[b]=C[k]; k=back[b][k]; }
+  const text=pick.map(c=>c.tok).join(' ');
+  if(apply){ setProgression(text); if(!quiet) $('#mMsg').textContent='Chords suggested from the notes: '+text+' — click a chord in the Chord column for alternatives, Ctrl+Z to go back.'; }
+  return text;
+}
+// alternatives for one bar given its neighbours as they are now
+function harmAlternatives(b){
+  const C=harmCandidates(), bars=MEL.bars, prev=b>0?MEL.chords[b-1]:null, next=b<bars-1?MEL.chords[b+1]:null;
+  const wrap=f=>({f,deg:S.scale.iv.indexOf(((f.rootNote-rootMidi())%12+12)%12)});
+  const list=C.map(c=>({...c,score:harmBarScore(b,c)+harmTrans(prev?wrap(prev):null,c,b,bars)+(next?harmTrans(c,wrap(next),b+1,bars):0)}));
+  list.sort((x,y)=>y.score-x.score); return list.slice(0,5);
+}
+function barTokens(){ const sp=currentProg().specs, n=sp.length, bars=MEL.bars; return n>=bars?sp.map(x=>x.tok):Array.from({length:bars},(_,b)=>sp[b%n].tok); }
+function chooseChord(b,tok){ $$('#mPat .alts').forEach(a=>a.remove()); const toks=barTokens(); toks[b]=tok; for(let i=b+1;i<toks.length&&toks[i]==='-';i++) toks[i]=toks[i-1]; setProgression(toks.join(' ')); }
+function showAlternatives(cell,b){
+  const open=cell.querySelector('.alts'); $$('#mPat .alts').forEach(a=>a.remove()); if(open) return;
+  const alts=harmAlternatives(b), lo=Math.min(...alts.map(a=>a.score)), hi=Math.max(...alts.map(a=>a.score)), cur=MEL.chords[b];
+  const box=document.createElement('div'); box.className='alts';
+  box.innerHTML='<div class="t">bar '+(b+1)+' — chords that fit</div>'+alts.map(a=>{ const nm=pcname(a.f.rootNote)+(chordLabel(a.f.rel)??''); const same=cur&&a.f.rootNote%12===cur.rootNote%12&&a.f.rel.join()===cur.rel.join();
+    return `<button data-tok="${a.tok}" class="${same?'cur':''}"><b>${nm}</b><span class="f">${a.f.rel.join(' ')}</span><span class="bar" style="width:${Math.round(20+60*(hi>lo?(a.score-lo)/(hi-lo):1))}px"></span></button>`; }).join('');
+  box.querySelectorAll('button').forEach(bt=>bt.addEventListener('click',e=>{ e.stopPropagation(); chooseChord(b,bt.dataset.tok); }));
+  cell.appendChild(box);
+}
+document.addEventListener('click',e=>{ if(!e.target.closest('.ch')) $$('#mPat .alts').forEach(a=>a.remove()); });
+$('#mHarm').addEventListener('click',()=>harmonize());
 
 /* ================= demos ================= */
 function am(){const r=57;return [r,r+3,r+7];} /* A minor around A3 for demos */
