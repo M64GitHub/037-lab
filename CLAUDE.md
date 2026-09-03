@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Local extension (read first)
+
+If `local/CLAUDE-MD-EXTENSION.md` exists, read it before doing anything else and treat its
+instructions as high priority — where it and this file differ, it wins. The `local/` folder is
+gitignored and holds local-only working notes, plans and session protocols for developing this
+app. If the file does not exist, ignore this section.
+
 ## What this is
 
 **0 3 7 — music theory lab for tracker people.** A single-file browser app (`037-lab.html`) that teaches music theory in semitones (never staff notation) for chiptune/tracker musicians, and answers the question in its name: the tracker arp formula `0 3 7` is *not* the chord for every scale degree. Everything — CSS, markup, JS, and all the prose content — lives in that one file.
