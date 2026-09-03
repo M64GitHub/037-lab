@@ -31,7 +31,7 @@ Add new code inside the matching banner section; the init block at the bottom fi
 Pitches are MIDI numbers; scales, chords and intervals are arrays of semitone offsets (`iv`). `tname(midi)` formats tracker-style names (`C-4`, `A#3`). `NOTE_NAMES` are sharps only.
 
 ### Data tables drive the UI
-- `SCALES` — `iv` offsets + a `mood` string shown as the tab hint.
+- `SCALES` — `iv` offsets (5–8 notes), a `group` (rendered as an `<optgroup>` in the header select, in first-appearance order) and a `mood` string shown as the tab hint. Nothing may assume seven notes: use `S.scale.iv.length` (L), `romanFor` falls back to numbers, chord stacking wraps with `% L`, the cadence picks the scale note nearest a perfect fifth (whole tone has none), 7th-chord harmonize candidates exist only when L === 7.
 - `CHORDS` — `iv` is the raw tracker formula; `deg` is *which scale steps the chord stacks* (0-based). `deg` is what makes snapping work for any scale length.
 - `PROGS` — preset progressions as 0-based scale degrees (`degs`); they only fill the progression text field (`presetText`). The live progression is the typed text (see *Progressions* below).
 - `TECH` / `THEORY` — `{t: title, b: HTML body, d?: DEMOS key}`; rendered as collapsible cards by `renderLearn`. A `d` key adds a "Hear it" button that calls `DEMOS[d]()`.

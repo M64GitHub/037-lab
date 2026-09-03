@@ -388,18 +388,31 @@ function tname(midi){const pc=((midi%12)+12)%12,oct=Math.floor(midi/12)-1;const 
 function pcname(pc){return NOTE_NAMES[((pc%12)+12)%12];}
 
 const SCALES=[
- {id:'major',   name:'Major (Ionian)',          iv:[0,2,4,5,7,9,11], mood:'bright, confident, happy end-boss-defeated energy'},
- {id:'nminor',  name:'Natural Minor (Aeolian)', iv:[0,2,3,5,7,8,10], mood:'melancholic, serious — the chiptune default'},
- {id:'hminor',  name:'Harmonic Minor',          iv:[0,2,3,5,7,8,11], mood:'dramatic, gothic, castle-level tension'},
- {id:'mminor',  name:'Melodic Minor',           iv:[0,2,3,5,7,9,11], mood:'smooth minor, slightly jazzy'},
- {id:'dorian',  name:'Dorian',                  iv:[0,2,3,5,7,9,10], mood:'cool, hopeful minor — funk and 90s dance love it'},
- {id:'phrygian',name:'Phrygian',                iv:[0,1,3,5,7,8,10], mood:'dark, menacing, spanish tinge'},
- {id:'phrygdom',name:'Phrygian Dominant',       iv:[0,1,4,5,7,8,10], mood:'exotic, eastern, metal'},
- {id:'lydian',  name:'Lydian',                  iv:[0,2,4,6,7,9,11], mood:'dreamy, floating, sci-fi wonder'},
- {id:'mixo',    name:'Mixolydian',              iv:[0,2,4,5,7,9,10], mood:'bright but laid back, rock/blues'},
- {id:'majpent', name:'Major Pentatonic',        iv:[0,2,4,7,9],      mood:'simple and folky — almost impossible to hit a wrong note'},
- {id:'minpent', name:'Minor Pentatonic',        iv:[0,3,5,7,10],     mood:'riff machine, bluesy'},
- {id:'blues',   name:'Blues',                   iv:[0,3,5,6,7,10],   mood:'gritty, expressive, bend-me notes'}
+ /* group = <optgroup> in the header select. iv can be 5–8 notes; everything downstream uses iv.length (L). */
+ {id:'major',    group:'Modes',                 name:'Major (Ionian)',          iv:[0,2,4,5,7,9,11], mood:'bright, confident, happy end-boss-defeated energy'},
+ {id:'dorian',   group:'Modes',                 name:'Dorian',                  iv:[0,2,3,5,7,9,10], mood:'cool, hopeful minor — funk and 90s dance love it'},
+ {id:'phrygian', group:'Modes',                 name:'Phrygian',                iv:[0,1,3,5,7,8,10], mood:'dark, menacing, spanish tinge'},
+ {id:'lydian',   group:'Modes',                 name:'Lydian',                  iv:[0,2,4,6,7,9,11], mood:'dreamy, floating, sci-fi wonder'},
+ {id:'mixo',     group:'Modes',                 name:'Mixolydian',              iv:[0,2,4,5,7,9,10], mood:'bright but laid back, rock/blues'},
+ {id:'locrian',  group:'Modes',                 name:'Locrian',                 iv:[0,1,3,5,6,8,10], mood:'unstable, sinister — nobody writes a whole song in it, but a few bars of dread, yes'},
+ {id:'nminor',   group:'Minor & exotic',        name:'Natural Minor (Aeolian)', iv:[0,2,3,5,7,8,10], mood:'melancholic, serious — the chiptune default'},
+ {id:'hminor',   group:'Minor & exotic',        name:'Harmonic Minor',          iv:[0,2,3,5,7,8,11], mood:'dramatic, gothic, castle-level tension'},
+ {id:'mminor',   group:'Minor & exotic',        name:'Melodic Minor',           iv:[0,2,3,5,7,9,11], mood:'smooth minor, slightly jazzy'},
+ {id:'phrygdom', group:'Minor & exotic',        name:'Phrygian Dominant',       iv:[0,1,4,5,7,8,10], mood:'exotic, eastern, metal'},
+ {id:'hungmin',  group:'Minor & exotic',        name:'Hungarian Minor',         iv:[0,2,3,6,7,8,11], mood:'ornate and dark — gypsy violin, vampire castle'},
+ {id:'dblharm',  group:'Minor & exotic',        name:'Double Harmonic',         iv:[0,1,4,5,7,8,11], mood:'desert level, snake charmer, maximum drama'},
+ {id:'lyddom',   group:'Minor & exotic',        name:'Lydian Dominant',         iv:[0,2,4,6,7,9,10], mood:'quirky and bright, cartoon mischief'},
+ {id:'majpent',  group:'Pentatonic & Japanese', name:'Major Pentatonic',        iv:[0,2,4,7,9],      mood:'simple and folky — almost impossible to hit a wrong note'},
+ {id:'minpent',  group:'Pentatonic & Japanese', name:'Minor Pentatonic',        iv:[0,3,5,7,10],     mood:'riff machine, bluesy'},
+ {id:'blues',    group:'Pentatonic & Japanese', name:'Blues',                   iv:[0,3,5,6,7,10],   mood:'gritty, expressive, bend-me notes'},
+ {id:'majblues', group:'Pentatonic & Japanese', name:'Major Blues',             iv:[0,2,3,4,7,9],    mood:'happy blues, honky-tonk bounce'},
+ {id:'hirajoshi',group:'Pentatonic & Japanese', name:'Hirajoshi',               iv:[0,2,3,7,8],      mood:'Japanese, koto — calm with a shadow in it'},
+ {id:'insen',    group:'Pentatonic & Japanese', name:'In-sen',                  iv:[0,1,5,7,10],     mood:'Japanese, sparse and mysterious — temple at night'},
+ {id:'yo',       group:'Pentatonic & Japanese', name:'Yo',                      iv:[0,2,5,7,9],      mood:'Japanese folk, open and bright, not a single half step'},
+ {id:'ryukyu',   group:'Pentatonic & Japanese', name:'Ryukyu (Okinawan)',       iv:[0,4,5,7,11],     mood:'Okinawan folk — sunny island, sanshin'},
+ {id:'wholetone',group:'Symmetric',             name:'Whole Tone',              iv:[0,2,4,6,8,10],   mood:'dream sequence, floating, no home note to land on'},
+ {id:'dimhw',    group:'Symmetric',             name:'Diminished (half-whole)', iv:[0,1,3,4,6,7,9,10], mood:'tense and symmetrical — boss-fight jazz'},
+ {id:'dimwh',    group:'Symmetric',             name:'Diminished (whole-half)', iv:[0,2,3,5,6,8,9,11], mood:'the same tension, darker footing'}
 ];
 
 /* deg = which scale steps the chord stacks (0-based). Used to snap the shape into any scale. */
@@ -435,7 +448,7 @@ const PROGS=[
 /* ================= state ================= */
 const S={
   root:9,            /* A */
-  scale:SCALES[1],   /* natural minor */
+  scale:SCALES.find(x=>x.id==='nminor'),   /* natural minor */
   chord:CHORDS[0],   /* minor 0 3 7 */
   snap:true,
   wave:'pulse25',
@@ -589,7 +602,8 @@ function fillGlobal(){
   const rs=$('#rootSel');
   rs.innerHTML=NOTE_NAMES.map((n,i)=>`<option value="${i}" ${i===S.root?'selected':''}>${n}</option>`).join('');
   const ss=$('#scaleSel');
-  ss.innerHTML=SCALES.map(s=>`<option value="${s.id}" ${s.id===S.scale.id?'selected':''}>${s.name}</option>`).join('');
+  const groups=[...new Set(SCALES.map(s=>s.group))];
+  ss.innerHTML=groups.map(g=>`<optgroup label="${g}">`+SCALES.filter(s=>s.group===g).map(s=>`<option value="${s.id}" ${s.id===S.scale.id?'selected':''}>${s.name}</option>`).join('')+'</optgroup>').join('');
   rs.onchange=()=>{S.root=+rs.value; renderScaleTab(); fillMelodyProg(); saveState();};
   ss.onchange=()=>{S.scale=SCALES.find(x=>x.id===ss.value); PROG.specs=null; setProgression(PROG.text,{rechord:false}); renderScaleTab(); fillMelodyProg(); saveState();};
   $('#waveSel').value=S.wave; $('#arpRate').value=S.arpRate; $('#arpRateVal').textContent=S.arpRate+'/s';
@@ -800,7 +814,8 @@ function varyBar(bar,chordF,opts,amount,cadence){
   }
   if(cadence && onsets.length){
     const li=onsets[onsets.length-1];
-    cells[li].midi=nearestInPool(opts.pool,cells[li].midi,[S.root, (S.root+S.scale.iv[Math.min(4,S.scale.iv.length-1)])%12]);
+    const fifth=S.scale.iv.reduce((best,v)=>Math.abs(v-7)<Math.abs(best-7)?v:best,S.scale.iv[0]);   // the scale note nearest a perfect fifth (whole tone has none)
+    cells[li].midi=nearestInPool(opts.pool,cells[li].midi,[S.root,(S.root+fifth)%12]);
   }
   return {cells,last:cells[onsets[onsets.length-1]]?.midi??null};
 }

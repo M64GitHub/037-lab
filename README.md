@@ -30,7 +30,10 @@ your first click; everything is synthesised with pulse / triangle / saw waves in
 
 Global controls up top — **root, scale, waveform, arp rate, volume** — drive all four tabs.
 
-**Scale & Chords** — a keyboard that lights up the scale, then every chord shape
+**Scale & Chords** — twenty-four scales in four families (the modes; minor and exotic flavours
+like harmonic, Hungarian and double harmonic; pentatonic, blues and the Japanese hirajoshi, in-sen,
+yo and Ryukyu; the symmetric whole-tone and diminished scales), each with a one-line mood. A
+keyboard that lights up the scale, then every chord shape
 (triads, sus, power chords, 7ths, 6ths, add9) built on every scale note, shown as the digits you
 type in your arp. Toggle *snap to scale* to see the raw formula vs. the diatonic one. Common
 progressions play as fast arps, one bar each, in the current key.
