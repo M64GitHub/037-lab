@@ -192,11 +192,11 @@ h2:first-child{margin-top:0}
   background:#0b0f1c; border:1px solid var(--line); border-radius:10px;
   max-height:560px; overflow-y:auto; font-size:13px;
 }
-.prow,.phead{display:grid; grid-template-columns:44px 76px 48px 104px 1fr; gap:0; padding:1px 10px; cursor:default}
-.phead{grid-template-columns:44px 124px 104px 1fr; align-items:center; position:sticky; top:0; z-index:1; padding:5px 10px 4px; background:#0b0f1c; border-bottom:1px solid var(--line); color:var(--faint); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase}
-.phead .hm,.phead .hb{display:flex; align-items:center; gap:4px; padding:0 5px} .phead .ch{text-align:right}
+.prow,.phead{display:grid; grid-template-columns:var(--pcols,44px 76px 48px 104px 1fr); gap:0; padding:1px 10px; cursor:default}
+.phead{align-items:center; position:sticky; top:0; z-index:1; padding:5px 10px 4px; background:#0b0f1c; border-bottom:1px solid var(--line); color:var(--faint); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase}
+.phead .hc{display:flex; align-items:center; gap:4px; padding:0 5px} .phead .hc.fx{grid-column:span 2} .phead .ch{text-align:right}
 .xb{font-family:var(--mono); font-size:10px; letter-spacing:.04em; line-height:15px; padding:0 5px; border:1px solid var(--line2); border-radius:4px; background:var(--panel2); color:var(--dim); cursor:pointer}
-.xb:hover{border-color:var(--cyan); color:var(--cyan)} .phead .hm .xb:first-of-type{margin-left:4px}
+.xb:hover{border-color:var(--cyan); color:var(--cyan)} .phead .hc .xb:first-of-type{margin-left:4px}
 .prow .st{color:var(--faint)}
 .prow .nt{font-weight:700; cursor:pointer; border-radius:4px; padding:0 5px}
 .prow .nt:hover{background:var(--cyan-soft)}
@@ -205,7 +205,7 @@ h2:first-child{margin-top:0}
 .prow .fx{color:var(--amber); font-size:12px}
 .prow .bs{color:var(--dim); font-weight:600; padding:0 5px}
 .prow .bs.rest,.prow .bs.holdc{color:var(--faint); font-weight:400}
-#mPat.nobass .bs{opacity:.35}
+#mPat.no-bass .bs{opacity:.35}
 #mPat.noslide .fx{opacity:.35; text-decoration:line-through}
 .prow .ch{color:var(--faint); font-size:11.5px; text-align:right}
 .prow.beat{background:rgba(255,255,255,.028)}
@@ -839,53 +839,68 @@ function variationMelody(){
   placeSlides(MEL.cells,$('#mSlide').value,MEL.bars,curStepDur());
   renderPattern();
 }
+/* --- columns: every pattern column is a COLS entry; the renderer, the header export buttons, the
+   text dump and playback all iterate it. Adding a column = adding an entry (+ its generator). --- */
+const COLS=[
+ {id:'mel', label:'Melody', short:'Mel',  cells:()=>MEL.cells, cls:'nt', w:'76px', fxw:'48px', fx:true,  edit:true,  toggle:null,     noteOff:true, play:null},
+ {id:'bass',label:'Bass',   short:'Bass', cells:()=>MEL.bass,  cls:'bs', w:'104px',            fx:false, edit:false, toggle:'#mBass', noteOff:true,
+  play:(cells,t0,stepDur)=>cells.forEach((c,i)=>{ if(c.type==='note') voice(c.midi,{t:t0+i*stepDur,dur:Math.max(noteLen(cells,i)*stepDur*.92,.06),gain:i%4===0?.6:.35,wave:'triangle'}); })}
+];
+const colById=id=>COLS.find(c=>c.id===id);
 function renderPattern(){
   const box=$('#mPat'); box.innerHTML='';
   if(!MEL.cells.length){box.innerHTML='<div style="padding:24px;color:var(--faint)">Press Generate to get a melody.</div>';return;}
+  box.style.setProperty('--pcols','44px '+COLS.map(c=>c.w+(c.fx?' '+c.fxw:'')).join(' ')+' 1fr');
   const head=document.createElement('div'); head.className='phead';
-  const xb=(col,fmt)=>`<button class="xb" data-col="${col}" data-fmt="${fmt}" title="Copy the ${col==='mel'?'melody':'bass'} column as ${fmt==='it'?'OpenMPT / IT text (DUET, OpenMPT, Schism)':'DUET SW text (SID-Wizard track)'}">${fmt==='it'?'IT':'SWM'}</button>`;
-  head.innerHTML='<span class="st">#</span><span class="hm">Melody'+xb('mel','it')+xb('mel','swm')+'</span><span class="hb">Bass'+xb('bass','it')+xb('bass','swm')+'</span><span class="ch">Chord</span>';
+  const xb=(col,fmt)=>`<button class="xb" data-col="${col.id}" data-fmt="${fmt}" title="Copy the ${col.label.toLowerCase()} column as ${fmt==='it'?'OpenMPT / IT text (DUET, OpenMPT, Schism)':'DUET SW text (SID-Wizard track)'}">${fmt==='it'?'IT':'SWM'}</button>`;
+  head.innerHTML='<span class="st">#</span>'+COLS.map(c=>`<span class="hc${c.fx?' fx':''}">${c.label}${xb(c,'it')}${xb(c,'swm')}</span>`).join('')+'<span class="ch">Chord</span>';
   head.querySelectorAll('.xb').forEach(b=>b.addEventListener('click',()=>exportColumn(b.dataset.col,b.dataset.fmt)));
   box.appendChild(head);
+  const cellHTML=(col,cells,i)=>{
+    const c=cells[i]||{type:'rest'}; let txt,cls=col.cls;
+    if(c.type==='note') txt=tname(c.midi); else if(c.type==='hold'){txt='&nbsp;|';cls+=' holdc';} else {txt='···';cls+=' rest';}
+    let h=`<span class="${cls}" data-col="${col.id}">${txt}</span>`;
+    if(col.fx){
+      const fx=fxText(c); let title='';
+      if(fx){ const p=prevNoteMidi(cells,i); const semi=p==null?0:Math.abs(c.midi-p);
+        title=` title="tone portamento ${fx}`+(semi?` · ≈${Math.round(slideSecs(semi,c.slide)*1000)} ms over ${semi} st`:'')+'"'; }
+      h+=`<span class="fx"${title}>${fx}</span>`;
+    }
+    return h;
+  };
   MEL.cells.forEach((c,i)=>{
     const row=document.createElement('div');
     row.className='prow'+(i%4===0?' beat':'')+(i%16===0?' bar':'');
     row.dataset.step=i;
     const hex=i.toString(16).toUpperCase().padStart(2,'0');
-    let nt,cls='nt';
-    if(c.type==='note') nt=tname(c.midi);
-    else if(c.type==='hold'){nt='&nbsp;|';cls='nt holdc';}
-    else {nt='\u00b7\u00b7\u00b7';cls='nt rest';}
-    const ch=(i%16===0)?(()=>{const f=MEL.chords[i/16];const nm=pcname(f.rootNote);const lb=chordLabel(f.rel);return nm+(lb!==null?lb:'')+ ' \u2039'+f.rel.join(' ')+'\u203a';})():'';
-    const fx=fxText(c); let fxTitle='';
-    if(fx){ const p=prevNoteMidi(MEL.cells,i); const semi=p==null?0:Math.abs(c.midi-p);
-      fxTitle=` title="tone portamento ${fx}`+(semi?` \u00b7 \u2248${Math.round(slideSecs(semi,c.slide)*1000)} ms over ${semi} st`:'')+'"'; }
-    const b=MEL.bass[i]||{type:'rest'}; let bt,bcls='bs';
-    if(b.type==='note') bt=tname(b.midi); else if(b.type==='hold'){bt='&nbsp;|';bcls='bs holdc';} else {bt='\u00b7\u00b7\u00b7';bcls='bs rest';}
-    row.innerHTML=`<span class="st">${hex}</span><span class="${cls}">${nt}</span><span class="fx"${fxTitle}>${fx}</span><span class="${bcls}">${bt}</span><span class="ch">${ch}</span>`;
-    const ncell=row.querySelector('.nt');
-    ncell.addEventListener('click',()=>{
-      const cell=MEL.cells[i];
-      if(cell.type==='note'){
-        pushUndo();
-        const pool=melodyPool();
-        const chordPcs=MEL.chords[Math.floor(i/16)].midis.map(m=>m%12);
-        cell.midi=walkPitch(pool,cell.midi,.2,chordPcs,i%4===0);
-        reslide(i); if(i+1<MEL.cells.length) reslide(i+noteLen(MEL.cells,i));
-        playNote(cell.midi,.25); renderPattern();
-      }
-    });
-    ncell.addEventListener('dblclick',()=>{
-      const cell=MEL.cells[i]; pushUndo();
-      if(cell.type==='note'){ MEL.cells[i]={type:'rest'};
-        let k=i+1; while(k<MEL.cells.length&&MEL.cells[k].type==='hold'){MEL.cells[k]={type:'rest'};k++;}
-      } else {
-        const pool=melodyPool();
-        const chordPcs=MEL.chords[Math.floor(i/16)].midis.map(m=>m%12);
-        MEL.cells[i]={type:'note',midi:walkPitch(pool,null,0,chordPcs,true),len:1};
-      }
-      renderPattern();
-    });
+    const ch=(i%16===0)?(()=>{const f=MEL.chords[i/16];const nm=pcname(f.rootNote);const lb=chordLabel(f.rel);return nm+(lb!==null?lb:'')+ ' ‹'+f.rel.join(' ')+'›';})():'';
+    row.innerHTML=`<span class="st">${hex}</span>`+COLS.map(col=>cellHTML(col,col.cells(),i)).join('')+`<span class="ch">${ch}</span>`;
+    for(const col of COLS){
+      if(!col.edit) continue;
+      const cells=col.cells(), ncell=row.querySelector(`[data-col="${col.id}"]`);
+      ncell.addEventListener('click',()=>{
+        const cell=cells[i];
+        if(cell.type==='note'){
+          pushUndo();
+          const pool=melodyPool();
+          const chordPcs=MEL.chords[Math.floor(i/16)].midis.map(m=>m%12);
+          cell.midi=walkPitch(pool,cell.midi,.2,chordPcs,i%4===0);
+          reslide(i); if(i+1<cells.length) reslide(i+noteLen(cells,i));
+          playNote(cell.midi,.25); renderPattern();
+        }
+      });
+      ncell.addEventListener('dblclick',()=>{
+        const cell=cells[i]; pushUndo();
+        if(cell.type==='note'){ cells[i]={type:'rest'};
+          let k=i+1; while(k<cells.length&&cells[k].type==='hold'){cells[k]={type:'rest'};k++;}
+        } else {
+          const pool=melodyPool();
+          const chordPcs=MEL.chords[Math.floor(i/16)].midis.map(m=>m%12);
+          cells[i]={type:'note',midi:walkPitch(pool,null,0,chordPcs,true),len:1};
+        }
+        renderPattern();
+      });
+    }
     box.appendChild(row);
   });
   saveState();
@@ -894,7 +909,7 @@ function scheduleMelody(t0){
   const ac=audio();
   const bpm=+$('#mBpm').value, stepDur=60/bpm/4;
   MEL.stepDur=stepDur;
-  const useArp=$('#mArp').checked, useBass=$('#mBass').checked, hear=$('#mHearSlide').checked;
+  const useArp=$('#mArp').checked, hear=$('#mHearSlide').checked;
   // lead: a note plus every following 3xx note that starts exactly where the previous one ends
   // is ONE voice (no retrigger) whose pitch ramps at each slide — that is what tone portamento means
   const on=[]; MEL.cells.forEach((c,i)=>{ if(c.type==='note') on.push(i); });
@@ -917,9 +932,7 @@ function scheduleMelody(t0){
       playArp(am,16*stepDur*.99,null,{t:bt,gain:.20,wave:'pulse125'});
     }
   }
-  if(useBass) MEL.bass.forEach((c,i)=>{
-    if(c.type==='note') voice(c.midi,{t:t0+i*stepDur,dur:Math.max(noteLen(MEL.bass,i)*stepDur*.92,.06),gain:i%4===0?.6:.35,wave:'triangle'});
-  });
+  for(const col of COLS) if(col.play&&(!col.toggle||$(col.toggle).checked)) col.play(col.cells(),t0,stepDur);
   return MEL.cells.length*stepDur;
 }
 function playMelody(){
@@ -958,11 +971,11 @@ function copyMelody(){
   if(!MEL.cells.length)return;
   const bpm=+$('#mBpm').value;
   let out=`${pcname(S.root)} ${S.scale.name} \u00b7 ${MEL.cells.length} steps @ ${bpm} BPM \u00b7 prog ${currentProg().name}\n`;
-  out+='## Mel FX  Bass\n';
+  out+='## '+COLS.map(c=>c.short+(c.fx?' FX':'')).join('  ')+'\n';
   const cellTxt=c=>c.type==='note'?tname(c.midi):c.type==='hold'?' | ':'...';
   MEL.cells.forEach((c,i)=>{
     const hex=i.toString(16).toUpperCase().padStart(2,'0');
-    out+=hex+' '+cellTxt(c)+' '+(fxText(c)||'...')+' '+cellTxt(MEL.bass[i]||{type:'rest'})+'\n';
+    out+=hex+' '+COLS.map(col=>{ const x=col.cells()[i]||{type:'rest'}; return cellTxt(x)+(col.fx?' '+(fxText(x)||'...'):''); }).join(' ')+'\n';
   });
   if(MEL.cells.some(c=>c.slide!=null)) out+='3xx = tone portamento (SID-Wizard speed values)\n';
   navigator.clipboard.writeText(out).then(()=>{$('#mMsg').textContent='Copied to clipboard.';})
@@ -972,7 +985,7 @@ function copyMelody(){
 function itName(m){ return tname(m+12); }   // IT / OpenMPT / DUET: middle C (MIDI 60) is C-5, the app shows it as C-4
 // IT Gxx = xx/16 semitone per tick on the 5 non-first ticks of a row; speed 6 and tempo = BPM make one row a 16th
 function itSpeed(semi,secs,bpm){ return Math.max(1,Math.min(255,Math.round(40*semi/(bpm*secs)))); }
-function exportText(cells,fmt){
+function exportText(cells,fmt,col=null){
   const bpm=+$('#mBpm').value, hex2=v=>v.toString(16).toUpperCase().padStart(2,'0'), it=fmt==='it';
   const lines=[it?'ModPlug Tracker  IT':'DUET SW'];
   cells.forEach((c,i)=>{
@@ -983,15 +996,15 @@ function exportText(cells,fmt){
         const p=prevNoteMidi(cells,i), semi=p==null?0:Math.abs(c.midi-p);
         if(semi) fx=it?'G'+hex2(itSpeed(semi,slideSecs(semi,c.slide),bpm)):'03'+hex2(c.slide);
       }
-    } else if(c.type==='rest'&&it&&i>0&&cells[i-1].type!=='rest') note='===';   // note-off: the app's rest is silence
+    } else if(c.type==='rest'&&it&&(!col||col.noteOff)&&i>0&&cells[i-1].type!=='rest') note='===';   // note-off: the app's rest is silence (not for drum-like columns)
     lines.push(it?'|'+note+'..'+'...'+fx:'|'+note+'..'+fx);                       // 11 chars (IT) / 9 chars (SWM) per cell
   });
   return lines.join('\n')+'\n';
 }
-function exportColumn(col,fmt){
-  const cells=col==='mel'?MEL.cells:MEL.bass; if(!cells.length) return;
-  const text=exportText(cells,fmt);
-  const what=(col==='mel'?'Melody':'Bass')+' \u2192 clipboard as '+(fmt==='it'?'ModPlug IT':'DUET SW')+', '+cells.length+' rows.';
+function exportColumn(colId,fmt){
+  const col=colById(colId), cells=col.cells(); if(!cells.length) return;
+  const text=exportText(cells,fmt,col);
+  const what=col.label+' \u2192 clipboard as '+(fmt==='it'?'ModPlug IT':'DUET SW')+', '+cells.length+' rows.';
   navigator.clipboard.writeText(text).then(()=>{$('#mMsg').textContent=what;})
     .catch(()=>{$('#mMsg').textContent='Clipboard blocked \u2014 try again after clicking in the page.';});
 }
@@ -1008,7 +1021,7 @@ $('#mBpm').addEventListener('input',e=>$('#mBpmVal').textContent=e.target.value)
 $('#mRest').addEventListener('input',e=>$('#mRestVal').textContent=e.target.value+'%');
 $('#mLeap').addEventListener('input',e=>$('#mLeapVal').textContent=e.target.value+'%');
 $('#mHearSlide').addEventListener('change',e=>{ $('#mPat').classList.toggle('noslide',!e.target.checked); if(MEL.playing) playMelody(); });
-$('#mBass').addEventListener('change',e=>{ $('#mPat').classList.toggle('nobass',!e.target.checked); if(MEL.playing) playMelody(); });
+for(const col of COLS) if(col.toggle) $(col.toggle).addEventListener('change',e=>{ $('#mPat').classList.toggle('no-'+col.id,!e.target.checked); if(MEL.playing) playMelody(); });
 $('#mArp').addEventListener('change',()=>{ if(MEL.playing) playMelody(); });
 document.addEventListener('keydown',e=>{
   if(e.code==='Space' && $('#tab-melody').classList.contains('on') && !['SELECT','INPUT','BUTTON'].includes(e.target.tagName)){
@@ -1077,7 +1090,7 @@ function applyMelodyState(p){
   }
   $('#mBpmVal').textContent=$('#mBpm').value; $('#mRestVal').textContent=$('#mRest').value+'%'; $('#mLeapVal').textContent=$('#mLeap').value+'%';
   $('#mPat').classList.toggle('noslide',!$('#mHearSlide').checked);
-  $('#mPat').classList.toggle('nobass',!$('#mBass').checked);
+  for(const col of COLS) if(col.toggle) $('#mPat').classList.toggle('no-'+col.id,!$(col.toggle).checked);
 }
 function setLenSelect(n){ const sel=$('#mLen'); if([...sel.options].some(o=>o.value===String(n))) sel.value=String(n); }
 function restorePattern(p){
