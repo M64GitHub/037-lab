@@ -38,8 +38,23 @@ progressions play as fast arps, one bar each, in the current key.
 **Melody Lab** — a melody generator that thinks like a tracker: 16 rows per bar, hex step numbers,
 `C-4`-style notes, `|` for a note still ringing, `···` for a rest. Pick length (1–8 bars), tempo,
 density, range, rests and leaps; it writes chord tones on the strong steps, walks stepwise in
-between, and shapes phrases (A B A B′, longer forms repeat and end on a cadence). Click a note to reroll it, double-click to mute it, space to
-play. Chord arps and a triangle octave bass come along for the ride, each in its own column so you
+between, and shapes phrases (A B A B′, longer forms repeat and end on a cadence). Space plays. Click any
+cell in the Melody, Bass or Drums column to select it and edit it from the keyboard, the way a
+tracker does:
+
+  | key | does |
+  | --- | --- |
+  | `↑` `↓` | move the note through the scale (bass: through the bass range; drums: cycle kick, snare, hat, open hat) |
+  | `Shift ↑↓` · `Alt ↑↓` | an octave · a semitone (a note outside the scale turns **red**) |
+  | `R` | reroll the note |
+  | `Del` / double-click | mute it to a rest |
+  | `Enter` | start a note on a rest, or split a ringing note at that row |
+  | `+` `−` | lengthen or shorten the note |
+  | `S` | toggle a slide into the note |
+  | `←` `→` `Tab` `Esc` | move around the columns, deselect |
+  | `Ctrl+Z` `Ctrl+Shift+Z` | undo, redo (buttons too) |
+
+  Hand-edited bass and drums survive a progression change and travel in the share link. Chord arps and a triangle octave bass come along for the ride, each in its own column so you
 see exactly what plays under the melody, and each column has **IT** / **SWM** buttons in its
 header that copy it to the clipboard in OpenMPT's `ModPlug Tracker  IT` text or DUET's `DUET SW`
 format, slides included (`Gxx` / `03xx`), ready to paste into DUET, OpenMPT or Schism. *Copy as

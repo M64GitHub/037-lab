@@ -203,7 +203,10 @@ h2:first-child{margin-top:0}
 .xb:hover{border-color:var(--cyan); color:var(--cyan)} .phead .hc .xb:first-of-type{margin-left:4px}
 .prow .st{color:var(--faint)}
 .prow .nt{font-weight:700; cursor:pointer; border-radius:4px; padding:0 5px}
-.prow .nt:hover{background:var(--cyan-soft)}
+.prow .nt:hover,.prow .bs:hover,.prow .dr:hover{background:var(--cyan-soft)}
+.prow .bs,.prow .dr{cursor:pointer; border-radius:4px}
+.prow .sel{box-shadow:inset 0 0 0 1px var(--cyan); background:var(--cyan-soft)}
+.prow .nt.out,.prow .bs.out{color:var(--red)}
 .prow .nt.rest{color:var(--faint); font-weight:400}
 .prow .nt.holdc{color:var(--faint); font-weight:400}
 .prow .fx{color:var(--amber); font-size:12px}
@@ -312,7 +315,7 @@ footer{max-width:1100px; margin:0 auto; padding:0 20px 30px; color:var(--faint);
   <section class="tab" id="tab-melody">
     <h2>Melody Lab</h2>
     <div class="hint">Generates melodies from the current scale on a 16th-note grid, tracker-style.
-      <b>Click a note</b> to reroll it &middot; <b>double-click</b> to mute it to a rest &middot; <b>Ctrl+Z</b> undoes. <code style="color:var(--faint)">&middot;&middot;&middot;</code> = rest, <code style="color:var(--faint)">|</code> = note still ringing &middot; <code style="color:var(--amber)">3xx</code> = slide into the note (tone portamento) &middot; the <b>Arp</b> column is the chord channel: one note per bar plus <code style="color:var(--amber)">Jxy</code>, the tracker arpeggio command with the chord&rsquo;s offsets (<b>Voicing</b> picks the inversion) &middot; the <b>Bass</b> column shows the octave-bass figure playing underneath &middot; the <b>Drums</b> column is a chip noise kit (<code style="color:var(--pink)">KIK SNR HAT OHH</code>) that exports as instrument numbers 01&ndash;04. The <b>IT</b> / <b>SWM</b> buttons in the column headers copy that column to the clipboard for DUET, OpenMPT or Schism.</div>
+      <b>Click a cell</b> to select it, then <b>&uarr;&darr;</b> move the note through the scale (Shift = octave, Alt = semitone), <b>R</b> rerolls, <b>Del</b> mutes, <b>Enter</b> starts a note, <b>+ / &minus;</b> change its length, <b>S</b> toggles a slide, <b>&larr;&rarr; Tab</b> move around &middot; <b>double-click</b> mutes &middot; <b>Ctrl+Z</b> undoes. <code style="color:var(--faint)">&middot;&middot;&middot;</code> = rest, <code style="color:var(--faint)">|</code> = note still ringing &middot; <code style="color:var(--amber)">3xx</code> = slide into the note (tone portamento) &middot; the <b>Arp</b> column is the chord channel: one note per bar plus <code style="color:var(--amber)">Jxy</code>, the tracker arpeggio command with the chord&rsquo;s offsets (<b>Voicing</b> picks the inversion) &middot; the <b>Bass</b> column shows the octave-bass figure playing underneath &middot; the <b>Drums</b> column is a chip noise kit (<code style="color:var(--pink)">KIK SNR HAT OHH</code>) that exports as instrument numbers 01&ndash;04. The <b>IT</b> / <b>SWM</b> buttons in the column headers copy that column to the clipboard for DUET, OpenMPT or Schism.</div>
     <div class="mlay">
       <div class="card ctlcard">
         <label>Length <select id="mLen"><option value="16">1 bar</option><option value="32" selected>2 bars</option><option value="48">3 bars</option><option value="64">4 bars</option><option value="80">5 bars</option><option value="96">6 bars</option><option value="112">7 bars</option><option value="128">8 bars</option></select></label>
@@ -717,7 +720,7 @@ const RHY={
  medium:[ [[0,2],[2,2],[4,4],[8,2],[10,2],[12,4]], [[0,4],[4,2],[6,2],[8,4],[12,2],[14,2]], [[0,2],[2,2],[4,2],[6,2],[8,4],[12,4]], [[0,3],[3,1],[4,4],[8,2],[10,2],[12,4]], [[0,2],[4,2],[6,2],[8,2],[10,2],[12,4]] ],
  busy:[ [[0,2],[2,2],[4,2],[6,2],[8,2],[10,2],[12,2],[14,2]], [[0,1],[1,1],[2,2],[4,2],[6,2],[8,2],[10,2],[12,4]], [[0,2],[2,1],[3,1],[4,2],[6,2],[8,2],[10,1],[11,1],[12,2],[14,2]], [[0,2],[2,2],[4,1],[5,1],[6,2],[8,2],[10,2],[12,2],[14,2]] ]
 };
-const MEL={cells:[],bass:[],arp:[],drums:[],bars:0,chords:[],playing:false,t0:0,stepDur:0,loopTimer:null,raf:null,seed:0,hist:[],redo:[]};
+const MEL={cells:[],bass:[],arp:[],drums:[],bars:0,sel:null,dirty:{bass:false,drums:false},chords:[],playing:false,t0:0,stepDur:0,loopTimer:null,raf:null,seed:0,hist:[],redo:[]};
 /* seeded PRNG (mulberry32): the same seed and settings always give the same melody.
    Generation code must draw from rnd()/chance(), never from Math.random(). */
 function makeRng(seed){ let a=seed>>>0; return ()=>{ a=(a+0x6D2B79F5)>>>0; let t=a; t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61); return ((t^(t>>>14))>>>0)/4294967296; }; }
@@ -894,7 +897,16 @@ function genDrums(bars,style,seed){
   }
   return cells;
 }
-function regenDrums(){ MEL.drums=genDrums(MEL.bars,$('#mDrumStyle').value,MEL.seed); }
+function regenDrums(){ MEL.drums=genDrums(MEL.bars,$('#mDrumStyle').value,MEL.seed); MEL.dirty.drums=false; }
+const DRUM_ORDER=['K','S','H','O'];
+function encodeDrums(cells){ return cells.map(c=>c.type==='note'?c.drum:'.').join(''); }
+function decodeDrums(str){ if(!/^[KSHO.]+$/.test(str||'')||str.length%16||str.length>128) return null; return [...str].map(ch=>ch==='.'?{type:'rest'}:{type:'note',drum:ch,len:1}); }
+// bass notes live below the chord register: scale notes plus the bar's chord tones from C1 up to just under the root
+function bassPool(f){
+  const pcs=scalePcs(), cps=f?f.midis.map(m=>m%12):[], pool=[];
+  for(let m=24;m<rootMidi();m++) if(pcs.includes(m%12)||cps.includes(m%12)) pool.push(m);
+  return pool;
+}
 function arpChordIndex(cells){ const m=new Map(); for(const c of cells){ if(c.type==='note'&&c.arp){ const k=c.arp.join(' '); if(!m.has(k)) m.set(k,m.size+1); } } return m; }
 function regenArp(){ MEL.arp=genArp(MEL.chords,$('#mVoice').value); }
 /* --- progressions: typed text is the source of truth. "1 5 6 4", "i VI III VII", "1 - b6 b7", "2m 5 7 1maj7".
@@ -963,7 +975,7 @@ function generateMelody(seed){
     restP:(+$('#mRest').value)/100,
     leapP:(+$('#mLeap').value)/100
   };
-  MEL.bars=bars; MEL.cells=[]; MEL.chords=[];
+  MEL.bars=bars; MEL.cells=[]; MEL.chords=[]; MEL.sel=null; MEL.dirty={bass:false,drums:false};
   const made=[], plan=phrasePlan(bars);
   let prev=null;
   for(let b=0;b<bars;b++){
@@ -1000,9 +1012,9 @@ const COLS=[
  {id:'mel', label:'Melody', short:'Mel',  cells:()=>MEL.cells, cls:'nt', w:'76px', fxw:'48px', fx:true,  edit:true,  toggle:null,     noteOff:true, play:null},
  {id:'arp', label:'Arp',    short:'Arp',  cells:()=>MEL.arp,   cls:'ar', w:'76px', fxw:'48px', fx:true,  edit:false, toggle:'#mArp',  noteOff:true,
   play:(cells,t0,stepDur)=>cells.forEach((c,i)=>{ if(c.type==='note') playArp([c.midi,...c.arp.map(o=>c.midi+o)],noteLen(cells,i)*stepDur*.99,null,{t:t0+i*stepDur,gain:.20,wave:'pulse125'}); })},
- {id:'bass',label:'Bass',   short:'Bass', cells:()=>MEL.bass,  cls:'bs', w:'104px',            fx:false, edit:false, toggle:'#mBass', noteOff:true,
+ {id:'bass',label:'Bass',   short:'Bass', cells:()=>MEL.bass,  cls:'bs', w:'104px',            fx:false, edit:true,  toggle:'#mBass', noteOff:true, kind:'bass',
   play:(cells,t0,stepDur)=>cells.forEach((c,i)=>{ if(c.type==='note') voice(c.midi,{t:t0+i*stepDur,dur:Math.max(noteLen(cells,i)*stepDur*.92,.06),gain:i%4===0?.6:.35,wave:'triangle'}); })},
- {id:'drums',label:'Drums', short:'Drm',  cells:()=>MEL.drums, cls:'dr', w:'76px',             fx:false, edit:false, toggle:'#mDrums', noteOff:false,
+ {id:'drums',label:'Drums', short:'Drm',  cells:()=>MEL.drums, cls:'dr', w:'76px',             fx:false, edit:true,  toggle:'#mDrums', noteOff:false, kind:'drum',
   text:c=>(DRUMS[c.drum]||DRUMS.K).tag,
   play:(cells,t0,stepDur)=>cells.forEach((c,i)=>{ if(c.type==='note') (DRUMS[c.drum]||DRUMS.K).play(t0+i*stepDur,i%4===0?1:.8); })}
 ];
@@ -1019,6 +1031,8 @@ function renderPattern(){
   const cellHTML=(col,cells,i)=>{
     const c=cells[i]||{type:'rest'}; let txt,cls=col.cls;
     if(c.type==='note') txt=col.text?col.text(c):tname(c.midi); else if(c.type==='hold'){txt='&nbsp;|';cls+=' holdc';} else {txt='···';cls+=' rest';}
+    if(c.type==='note'&&!col.text&&!inScalePc(c.midi)) cls+=' out';
+    if(MEL.sel&&MEL.sel.col===col.id&&MEL.sel.i===i) cls+=' sel';
     let h=`<span class="${cls}" data-col="${col.id}">${txt}</span>`;
     if(col.fx){
       const fx=fxText(c,i); let title='';
@@ -1038,34 +1052,93 @@ function renderPattern(){
     row.innerHTML=`<span class="st">${hex}</span>`+COLS.map(col=>cellHTML(col,col.cells(),i)).join('')+`<span class="ch">${ch}</span>`;
     for(const col of COLS){
       if(!col.edit) continue;
-      const cells=col.cells(), ncell=row.querySelector(`[data-col="${col.id}"]`);
-      ncell.addEventListener('click',()=>{
-        const cell=cells[i];
-        if(cell.type==='note'){
-          pushUndo();
-          const pool=barPool(MEL.chords[Math.floor(i/16)]);
-          const chordPcs=MEL.chords[Math.floor(i/16)].midis.map(m=>m%12);
-          cell.midi=walkPitch(pool,cell.midi,.2,chordPcs,i%4===0);
-          reslide(i); if(i+1<cells.length) reslide(i+noteLen(cells,i));
-          playNote(cell.midi,.25); renderPattern();
-        }
-      });
-      ncell.addEventListener('dblclick',()=>{
-        const cell=cells[i]; pushUndo();
-        if(cell.type==='note'){ cells[i]={type:'rest'};
-          let k=i+1; while(k<cells.length&&cells[k].type==='hold'){cells[k]={type:'rest'};k++;}
-        } else {
-          const pool=barPool(MEL.chords[Math.floor(i/16)]);
-          const chordPcs=MEL.chords[Math.floor(i/16)].midis.map(m=>m%12);
-          cells[i]={type:'note',midi:walkPitch(pool,null,0,chordPcs,true),len:1};
-        }
-        renderPattern();
-      });
+      const ncell=row.querySelector(`[data-col="${col.id}"]`);
+      ncell.addEventListener('click',()=>{ MEL.sel={col:col.id,i}; auditionCell(col,col.cells()[i]); renderPattern(); });
+      ncell.addEventListener('dblclick',()=>{ MEL.sel={col:col.id,i}; editCell('toggle'); });
     }
     box.appendChild(row);
   });
   saveState();
 }
+/* --- editing: one selected cell (MEL.sel), edited from the keyboard. Every action snapshots for undo, keeps
+   slides consistent, marks bass/drums as hand-edited (so re-chording and links keep them), re-renders. --- */
+function auditionCell(col,c){ if(!c||c.type!=='note') return; if(col.kind==='drum') (DRUMS[c.drum]||DRUMS.K).play(audio().currentTime+.01,1); else playNote(c.midi,.25); }
+function poolFor(col,i){ const f=MEL.chords[Math.floor(i/16)]; return col.kind==='bass'?bassPool(f):barPool(f); }
+function stepInPool(pool,cur,dir){ const c=dir>0?pool.filter(m=>m>cur):pool.filter(m=>m<cur); if(!c.length) return cur; return dir>0?c[0]:c[c.length-1]; }
+function markDirty(col){ if(col.id==='bass') MEL.dirty.bass=true; if(col.id==='drums') MEL.dirty.drums=true; }
+function editCell(action,arg){
+  if(!MEL.sel) return; const col=colById(MEL.sel.col), cells=col.cells(), i=MEL.sel.i, c=cells[i]; if(!c) return;
+  const f=MEL.chords[Math.floor(i/16)], chordPcs=f.midis.map(m=>m%12), drum=col.kind==='drum';
+  let play=true, did=true;
+  pushUndo();
+  switch(action){
+    case 'nudge': {                                   // arg: {dir, octave, semi}
+      if(c.type!=='note'){ did=false; break; }
+      if(drum){ c.drum=DRUM_ORDER[(DRUM_ORDER.indexOf(c.drum)+DRUM_ORDER.length+arg.dir)%DRUM_ORDER.length]; break; }
+      const pool=poolFor(col,i);
+      if(arg.octave) c.midi=Math.max(12,Math.min(120,c.midi+12*arg.dir));
+      else if(arg.semi) c.midi=Math.max(12,Math.min(120,c.midi+arg.dir));
+      else c.midi=stepInPool(pool,c.midi,arg.dir);
+      break; }
+    case 'reroll': {
+      if(c.type!=='note'){ did=false; break; }
+      if(drum){ c.drum=rnd(DRUM_ORDER.filter(d=>d!==c.drum)); break; }
+      if(col.kind==='bass'){ c.midi=rnd(bassPool(f).filter(m=>chordPcs.includes(m%12))); break; }
+      c.midi=walkPitch(poolFor(col,i),c.midi,.2,chordPcs,i%4===0);
+      break; }
+    case 'rest': {
+      if(c.type==='rest'){ did=false; break; }
+      cells[i]={type:'rest'}; let k=i+1; while(k<cells.length&&cells[k].type==='hold'){cells[k]={type:'rest'};k++;} play=false; break; }
+    case 'note': {                                    // start a note here: on a rest a chord tone, on a hold a split
+      if(c.type==='note'){ did=false; break; }
+      if(drum){ cells[i]={type:'note',drum:'K',len:1}; break; }
+      if(c.type==='hold'){ const p=prevNoteMidi(cells,i); cells[i]={type:'note',midi:p??f.rootNote,len:noteLen(cells,i)}; break; }
+      if(col.kind==='bass') cells[i]={type:'note',midi:f.rootNote-24+(i%4>=2?12:0),len:1};
+      else cells[i]={type:'note',midi:walkPitch(poolFor(col,i),null,0,chordPcs,true),len:1};
+      break; }
+    case 'toggle': { if(c.type==='note') return editCell('rest'); return editCell('note'); }
+    case 'longer': {
+      if(c.type!=='note'||drum){ did=false; break; }
+      const j=i+noteLen(cells,i); if(j<cells.length&&cells[j].type==='rest'){ cells[j]={type:'hold'}; c.len=noteLen(cells,i); } else did=false; play=false; break; }
+    case 'shorter': {
+      if(c.type!=='note'||drum){ did=false; break; }
+      const n=noteLen(cells,i); if(n>1){ cells[i+n-1]={type:'rest'}; c.len=n-1; } else did=false; play=false; break; }
+    case 'slide': {
+      if(c.type!=='note'||col.id!=='mel'){ did=false; break; }
+      if(c.slide!=null){ delete c.slide; play=false; break; }
+      const p=prevNoteMidi(cells,i), semi=p==null?0:Math.abs(c.midi-p);
+      if(!semi){ $('#mMsg').textContent='A slide needs a different note ringing right before it.'; did=false; break; }
+      c.slide=slideVal(semi,noteLen(cells,i)*curStepDur()*.5); play=false; break; }
+  }
+  if(!did){ MEL.hist.pop(); undoBtns(); return; }
+  if(col.id==='mel'){ reslide(i); const j=i+noteLen(cells,i); if(j<cells.length) reslide(j); }
+  markDirty(col);
+  if(play) auditionCell(col,cells[i]);
+  renderPattern();
+}
+function moveSel(di,dcol){
+  if(!MEL.sel) return; const ed=COLS.filter(c=>c.edit); let ci=ed.findIndex(c=>c.id===MEL.sel.col);
+  if(dcol){ ci=(ci+dcol+ed.length)%ed.length; MEL.sel.col=ed[ci].id; }
+  MEL.sel.i=Math.max(0,Math.min(MEL.cells.length-1,MEL.sel.i+di));
+  renderPattern();
+  const row=$('#mPat .prow[data-step="'+MEL.sel.i+'"]'); if(row) row.scrollIntoView({block:'nearest'});
+}
+document.addEventListener('keydown',e=>{
+  if(!MEL.sel||!MEL.cells.length||e.ctrlKey||e.metaKey) return;
+  if(!$('#tab-melody').classList.contains('on')||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
+  const k=e.key; let h=true;
+  if(k==='ArrowUp'||k==='ArrowDown') editCell('nudge',{dir:k==='ArrowUp'?1:-1,octave:e.shiftKey,semi:e.altKey});
+  else if(k==='ArrowLeft') moveSel(-1,0); else if(k==='ArrowRight') moveSel(1,0);
+  else if(k==='Tab') moveSel(0,e.shiftKey?-1:1);
+  else if(k==='r'||k==='R') editCell('reroll');
+  else if(k==='Delete'||k==='Backspace') editCell('rest');
+  else if(k==='Enter') editCell('note');
+  else if(k==='+'||k==='=') editCell('longer'); else if(k==='-'||k==='_') editCell('shorter');
+  else if(k==='s'||k==='S') editCell('slide');
+  else if(k==='Escape'){ MEL.sel=null; renderPattern(); }
+  else h=false;
+  if(h) e.preventDefault();
+});
 function scheduleMelody(t0){
   const ac=audio();
   const bpm=+$('#mBpm').value, stepDur=60/bpm/4;
@@ -1187,7 +1260,7 @@ function setProgression(text,{rechord=true}={}){
   if(r.error){ $('#mMsg').textContent=r.error; return false; }
   PROG.text=text.trim().replace(/\s+/g,' '); PROG.specs=r.specs; inp.value=PROG.text;
   syncPresetSelect(); renderProgs();
-  if(rechord&&MEL.cells.length){ MEL.chords=[]; for(let b=0;b<MEL.bars;b++) MEL.chords.push(barChord(b)); MEL.bass=genBass(MEL.chords); regenArp(); renderPattern(); if(MEL.playing) playMelody(); }
+  if(rechord&&MEL.cells.length){ MEL.chords=[]; for(let b=0;b<MEL.bars;b++) MEL.chords.push(barChord(b)); if(!MEL.dirty.bass) MEL.bass=genBass(MEL.chords); regenArp(); renderPattern(); if(MEL.playing) playMelody(); }
   $('#mMsg').textContent=''; return true;
 }
 $('#mProgText').addEventListener('change',e=>setProgression(e.target.value));
@@ -1239,6 +1312,8 @@ function appState(){
   for(const id of MCTL){ const el=document.getElementById(id); o[ctlKey(id)]=el.type==='checkbox'?(el.checked?1:0):el.value; }
   o.seed=seedHex(MEL.seed);
   if(MEL.cells.length) o.pat=encodeCells(MEL.cells);
+  if(MEL.dirty.bass) o.bpat=encodeCells(MEL.bass);
+  if(MEL.dirty.drums) o.dpat=encodeDrums(MEL.drums);
   return o;
 }
 function writeState(){
@@ -1281,19 +1356,21 @@ function restorePattern(p){
   MEL.seed=seed; RNG=makeRng(seed); $('#mSeed').value=seedHex(seed);
   MEL.cells=cells; MEL.bars=cells.length/16; setLenSelect(cells.length);
   MEL.chords=[]; for(let b=0;b<MEL.bars;b++) MEL.chords.push(barChord(b));
-  MEL.bass=genBass(MEL.chords); regenArp(); regenDrums();
+  MEL.bass=genBass(MEL.chords); regenArp(); regenDrums(); MEL.sel=null; MEL.dirty={bass:false,drums:false};
+  const bp=p.has('bpat')?decodeCells(p.get('bpat')):null; if(bp&&bp.length===cells.length){ MEL.bass=bp; MEL.dirty.bass=true; }
+  const dp=p.has('dpat')?decodeDrums(p.get('dpat')):null; if(dp&&dp.length===cells.length){ MEL.drums=dp; MEL.dirty.drums=true; }
   renderPattern(); return true;
 }
 /* --- undo / redo: snapshots of the pattern (cells, bass, seed); the controls are not part of it --- */
-const snapshot=()=>JSON.stringify({cells:MEL.cells,bass:MEL.bass,seed:MEL.seed});
+const snapshot=()=>JSON.stringify({cells:MEL.cells,bass:MEL.bass,drums:MEL.drums,seed:MEL.seed,dirty:MEL.dirty,sel:MEL.sel});
 function undoBtns(){ $('#mUndo').disabled=!MEL.hist.length; $('#mRedo').disabled=!MEL.redo.length; }
 function pushUndo(){ MEL.hist.push(snapshot()); if(MEL.hist.length>100) MEL.hist.shift(); MEL.redo.length=0; undoBtns(); }
 function applySnap(s){
   const o=JSON.parse(s);
   if(MEL.playing&&o.cells.length!==MEL.cells.length) stopMelody();
-  MEL.cells=o.cells; MEL.bass=o.bass; MEL.seed=o.seed; MEL.bars=MEL.cells.length/16;
+  MEL.cells=o.cells; MEL.bass=o.bass; MEL.drums=o.drums||MEL.drums; MEL.seed=o.seed; MEL.dirty=o.dirty||{bass:false,drums:false}; MEL.sel=o.sel||null; MEL.bars=MEL.cells.length/16;
   $('#mSeed').value=seedHex(MEL.seed); setLenSelect(MEL.cells.length);
-  MEL.chords=[]; for(let b=0;b<MEL.bars;b++) MEL.chords.push(barChord(b)); regenArp(); regenDrums();
+  MEL.chords=[]; for(let b=0;b<MEL.bars;b++) MEL.chords.push(barChord(b)); regenArp(); if(!o.drums) regenDrums();
   renderPattern(); undoBtns();
 }
 function undo(){ if(!MEL.hist.length) return; MEL.redo.push(snapshot()); applySnap(MEL.hist.pop()); }
