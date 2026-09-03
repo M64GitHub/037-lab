@@ -52,6 +52,12 @@ text* still gives you a plain readable dump.
   tells you the tick rate it runs at; the SWM export writes SID-Wizard's chord select (`07xx`) on
   the note row and lists the chords to enter in the chord table, since the clipboard cannot carry
   them.
+- **Drums column** — a chip noise kit: kick (triangle pitch drop), snare (noise burst plus a short
+  tone), closed and open hat (short and long high-passed noise), all synthesised from a 15-bit
+  LFSR like the NES noise channel, no samples. Pick a **Drum style** (four on the floor, boom bap,
+  breakbeat, half time, drum & bass, rock); the last bar gets a fill. One drum per row, as on a
+  single noise channel. The export writes a fixed note with instrument numbers 01–04, so make a
+  kick, snare, hat and open hat instrument in your tracker and paste.
 
 - **Slides** — set *Some* or *Lots* and the generator places tone portamento where it belongs:
   sliding up into the peak of a phrase, down into the cadence, bending across leaps. The amber
