@@ -140,6 +140,9 @@ h2:first-child{margin-top:0}
 .kb .root .deg{background:var(--pink)}
 .kb .wk.lit{background:linear-gradient(#fff,#5fd9e0)!important}
 .kb .bk.lit{background:linear-gradient(#243,#177)!important}
+.kbhint{display:flex; gap:14px; flex-wrap:wrap; align-items:center; font-size:11px; color:var(--faint); margin:0 0 8px}
+.kbhint b{color:var(--dim); font-weight:600} .kbhint kbd{font-family:inherit; border:1px solid var(--line2); border-radius:4px; padding:0 4px; color:var(--dim)}
+#midiBtn.on{border-color:var(--cyan); color:var(--cyan)}
 
 .scale-strip{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:12px}
 .snote{
@@ -301,6 +304,7 @@ footer{max-width:1100px; margin:0 auto; padding:0 20px 30px; color:var(--faint);
       </select></label>
       <label>Arp <input type="range" id="arpRate" min="8" max="60" value="30" step="1"><span class="val" id="arpRateVal">30/s</span></label>
       <label>Vol <input type="range" id="vol" min="0" max="100" value="70"></label>
+      <button class="btn small" id="midiBtn" hidden title="Play the keyboard from a MIDI device (asks the browser for MIDI access)">MIDI</button>
     </div>
   </div>
   <nav id="tabs">
@@ -316,6 +320,7 @@ footer{max-width:1100px; margin:0 auto; padding:0 20px 30px; color:var(--faint);
     <div class="hint" id="scaleHint"></div>
     <div class="kin" id="scaleKin" hidden></div>
     <div class="card">
+      <div class="kbhint" id="kbHint"></div>
       <div class="kb-wrap"><div class="kb" id="kb"></div></div>
       <div class="scale-strip" id="scaleStrip"></div>
     </div>
@@ -691,9 +696,49 @@ function renderKeyboard(){
     const lbl=document.createElement('span'); lbl.className='lbl'; lbl.textContent=tname(m); el.appendChild(lbl);
     if(inSc){ const d=document.createElement('span'); d.className='deg'; d.textContent=pcs.indexOf(pc)+1; el.appendChild(d); }
     if(FIND.pick&&FIND.midis.includes(m)) el.classList.add('pick');
-    el.addEventListener('pointerdown',()=>{ playNote(m,.4); el.classList.add('lit'); setTimeout(()=>el.classList.remove('lit'),220); if(FIND.pick) finderToggle(m); });
+    el.addEventListener('pointerdown',()=>hitKey(m));
     kb.appendChild(el);
   }
+}
+/* One path for every way of hitting a key — pointer, computer keyboard, MIDI: play it, light it, and in Finder pick
+   mode toggle it in the set. */
+function lightKey(m){ const el=$(`#kb [data-midi="${m}"]`); if(!el) return; el.classList.add('lit'); setTimeout(()=>el.classList.remove('lit'),220); }
+function hitKey(m,gain=.8){ playNote(m,.4,gain); lightKey(m); if(FIND.pick) finderToggle(m); }
+
+/* QWERTY piano: the FT2 / OpenMPT / SID-Wizard layout, on physical keys (e.code, so it survives non-US layouts).
+   Lower row Z..slash = the base octave and a bit above, upper row Q..P = one octave up; [ ] move the base octave
+   (C-3 / C-4 / C-5). Scale tab only, never inside a text field or select, never with Ctrl/Alt/Cmd, no key repeat. */
+const KEYMAP={KeyZ:0,KeyS:1,KeyX:2,KeyD:3,KeyC:4,KeyV:5,KeyG:6,KeyB:7,KeyH:8,KeyN:9,KeyJ:10,KeyM:11,Comma:12,KeyL:13,Period:14,Semicolon:15,Slash:16,
+  KeyQ:12,Digit2:13,KeyW:14,Digit3:15,KeyE:16,KeyR:17,Digit5:18,KeyT:19,Digit6:20,KeyY:21,Digit7:22,KeyU:23,KeyI:24,Digit9:25,KeyO:26,Digit0:27,KeyP:28};
+const KBD={base:48};                                  /* MIDI note under Z; in the URL state as `ko` */
+function renderKbHint(){
+  const h=$('#kbHint');
+  h.innerHTML=`<span><b>Keys</b> <kbd>Z</kbd>–<kbd>/</kbd> play from ${tname(KBD.base)}, <kbd>Q</kbd>–<kbd>P</kbd> an octave up &middot; <kbd>[</kbd> <kbd>]</kbd> change octave</span>`;
+  if(MIDI.txt){ const sp=document.createElement('span'); sp.innerHTML='<b>MIDI</b> '; sp.appendChild(document.createTextNode(MIDI.txt)); h.appendChild(sp); }
+}
+document.addEventListener('keydown',e=>{
+  if(e.repeat||e.ctrlKey||e.metaKey||e.altKey) return;
+  if(!$('#tab-scales').classList.contains('on')||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
+  if(e.code==='BracketLeft'||e.code==='BracketRight'){ KBD.base=Math.min(72,Math.max(48,KBD.base+(e.code==='BracketRight'?12:-12))); renderKbHint(); saveState(); e.preventDefault(); return; }
+  const off=KEYMAP[e.code]; if(off==null) return;
+  hitKey(KBD.base+off); e.preventDefault();
+});
+
+/* Web MIDI: opt-in through the header button (the browser asks for permission). Note-on with velocity > 0 goes through
+   hitKey with the velocity as gain; note-off is ignored (fixed envelope, like a click). Works on every tab. Devices that
+   appear later are picked up on statechange. Browsers without the API never see the button. */
+const MIDI={access:null,txt:''};
+function midiMsg(e){ const [st,d1,d2]=e.data; if((st&0xf0)===0x90&&d2>0) hitKey(d1,.25+.75*d2/127); }
+function midiAttach(){
+  const ins=[...MIDI.access.inputs.values()]; ins.forEach(i=>{ i.onmidimessage=midiMsg; });
+  MIDI.txt=ins.length?`${ins.map(i=>i.name||'input').join(', ')}`:'no input found — plug one in';
+  const b=$('#midiBtn'); b.textContent=`MIDI ${ins.length}`; b.classList.add('on'); b.title=MIDI.txt; renderKbHint();
+}
+if(navigator.requestMIDIAccess){
+  const b=$('#midiBtn'); b.hidden=false;
+  b.onclick=()=>{ if(MIDI.access){ midiAttach(); return; }
+    navigator.requestMIDIAccess({sysex:false}).then(a=>{ MIDI.access=a; a.onstatechange=midiAttach; midiAttach(); },
+      ()=>{ MIDI.txt='access denied — allow MIDI for this page in the browser site settings'; b.textContent='MIDI ✕'; b.title=MIDI.txt; renderKbHint(); }); };
 }
 function renderScaleStrip(){
   const st=$('#scaleStrip'); st.innerHTML='';
@@ -806,7 +851,7 @@ function renderProgs(){
 function renderScaleTab(){
   $('#scaleTitle').textContent=`${pcname(S.root)} ${S.scale.name} \u2014 ${S.scale.iv.join(' ')}`;
   $('#scaleHint').textContent=S.scale.mood.charAt(0).toUpperCase()+S.scale.mood.slice(1)+'. Click keys or the note chips to hear them.';
-  renderKeyboard(); renderScaleStrip(); renderChordChips(); fillTopSel(); renderDegrees(); renderProgs(); renderKin();
+  renderKbHint(); renderKeyboard(); renderScaleStrip(); renderChordChips(); fillTopSel(); renderDegrees(); renderProgs(); renderKin();
 }
 function renderKin(){
   const el=$('#scaleKin'), {same,par}=relatedKeys();
@@ -1518,7 +1563,7 @@ const MCTL=['mLen','mBpm','mDens','mRange','mRest','mLeap','mSlide','mProgText',
 const ctlAlias={progtext:'prog'};
 const ctlKey=id=>{ const k=id.slice(1).toLowerCase(); return ctlAlias[k]||k; };
 function appState(){
-  const o={r:S.root,s:S.scale.id,w:S.wave,a:S.arpRate,top:S.top==null?'':S.top,inva:S.invAll?1:0};
+  const o={r:S.root,s:S.scale.id,w:S.wave,a:S.arpRate,top:S.top==null?'':S.top,inva:S.invAll?1:0,ko:KBD.base};
   for(const id of MCTL){ const el=document.getElementById(id); o[ctlKey(id)]=el.type==='checkbox'?(el.checked?1:0):el.value; }
   o.prog=PROG.text;                                   // the last valid progression, not whatever the field holds
   o.seed=seedHex(MEL.seed);
@@ -1547,6 +1592,7 @@ function applyGlobalState(p){
   const a=+p.get('a'); if(p.has('a')&&a>=8&&a<=60) S.arpRate=a;
   if(p.has('top')){ const t=p.get('top'); S.top=(t!==''&&+t>=0&&+t<12)?+t:null; }
   if(p.has('inva')) S.invAll=p.get('inva')==='1';
+  const ko=+p.get('ko'); if([48,60,72].includes(ko)) KBD.base=ko;
 }
 function applyMelodyState(p){
   if(!p) return;

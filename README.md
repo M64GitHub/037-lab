@@ -48,6 +48,12 @@ exactly, and shows which keys hold that chord and as which degree (*Set key* swi
 pane is the scale finder: type all the notes of a song and it ranks every scale that holds them by
 fewest unused notes, shows which notes are unused, and *Use* sets root and scale with one click.
 
+The on-screen keyboard also plays from your computer keyboard the way trackers do: `Z`–`/` is one
+octave from C-3 (Z S X D C V G B H N J M , L . ; /), `Q`–`P` the octave above, `[` and `]` move
+it, while the Scale tab is open and no text field has focus. In browsers with Web MIDI (Chrome,
+Edge, Opera) a **MIDI** button in the header connects your MIDI keyboard, velocity and all. Both
+feed the Finder's *Pick on keyboard* mode, so play a chord and it gets named.
+
 **Melody Lab** — a melody generator that thinks like a tracker: 16 rows per bar, hex step numbers,
 `C-4`-style notes, `|` for a note still ringing, `···` for a rest. Pick length (1–8 bars), tempo,
 density, range, rests and leaps; it writes chord tones on the strong steps, walks stepwise in
