@@ -54,7 +54,16 @@ tracker does:
   | `←` `→` `Tab` `Esc` | move around the columns, deselect |
   | `Ctrl+Z` `Ctrl+Shift+Z` | undo, redo (buttons too) |
 
-  Hand-edited bass and drums survive a progression change and travel in the share link. Chord arps and a triangle octave bass come along for the ride, each in its own column so you
+  Hand-edited bass and drums survive a progression change and travel in the share link.
+
+- **Paste from your tracker** — the other direction. Copy a channel in OpenMPT (IT or XM), Schism
+  or DUET and press **Paste from tracker** (or the ⇩ button in a column header to aim it at the
+  Bass or Drums column). Notes, note-offs, held notes and tone portamento (`Gxx`, `3xx`, `03xx`)
+  come back as cells and slides; other effects are counted and ignored; more than one channel in
+  the text uses the first. Drums map by instrument number 01–04, or by pitch (C kick, D snare, F#
+  hat, A# open hat) when there is none. If the browser will not hand over the clipboard, a text box
+  appears to paste into. Your melody then gets the current progression under it, plus a generated
+  bass, arp and drums — edit, play and export it back. Chord arps and a triangle octave bass come along for the ride, each in its own column so you
 see exactly what plays under the melody, and each column has **IT** / **SWM** buttons in its
 header that copy it to the clipboard in OpenMPT's `ModPlug Tracker  IT` text or DUET's `DUET SW`
 format, slides included (`Gxx` / `03xx`), ready to paste into DUET, OpenMPT or Schism. *Copy as

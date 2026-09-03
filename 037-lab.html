@@ -189,6 +189,8 @@ h2:first-child{margin-top:0}
 .ctlcard .progt{width:160px}
 .ctlcard input.bad{border-color:var(--red)}
 .ctlcard .sub{font-size:10.5px; color:var(--faint); margin:-6px 0 10px; line-height:1.45}
+.ctlcard textarea{width:100%; box-sizing:border-box; height:96px; margin-top:10px; font:11px/1.4 var(--mono); background:var(--panel2); color:var(--ink); border:1px solid var(--line2); border-radius:6px; padding:6px 8px; resize:vertical}
+.phead .xb.imp{margin-left:2px}
 .ch .o{color:var(--red)} .ch .a{color:var(--amber)}
 .ctlcard .sect{border-top:1px dashed var(--line2); margin:12px 0; padding-top:12px}
 .ctlcard .btns{display:flex; gap:8px; flex-wrap:wrap; margin-top:4px}
@@ -198,8 +200,8 @@ h2:first-child{margin-top:0}
 }
 .prow,.phead{display:grid; grid-template-columns:var(--pcols,44px 76px 48px 104px 1fr); gap:0; padding:1px 10px; cursor:default}
 .phead{align-items:center; position:sticky; top:0; z-index:1; padding:5px 10px 4px; background:#0b0f1c; border-bottom:1px solid var(--line); color:var(--faint); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase}
-.phead .hc{display:flex; align-items:center; gap:4px; padding:0 5px} .phead .hc.fx{grid-column:span 2} .phead .ch{text-align:right}
-.xb{font-family:var(--mono); font-size:10px; letter-spacing:.04em; line-height:15px; padding:0 5px; border:1px solid var(--line2); border-radius:4px; background:var(--panel2); color:var(--dim); cursor:pointer}
+.phead .hc{display:flex; align-items:center; gap:3px; padding:0 4px; white-space:nowrap} .phead .hc.fx{grid-column:span 2} .phead .ch{text-align:right}
+.xb{background:var(--panel2); border:1px solid var(--line2); color:var(--dim); border-radius:4px; padding:0 4px; font:9.5px var(--mono); letter-spacing:.04em; cursor:pointer; line-height:15px}
 .xb:hover{border-color:var(--cyan); color:var(--cyan)} .phead .hc .xb:first-of-type{margin-left:4px}
 .prow .st{color:var(--faint)}
 .prow .nt{font-weight:700; cursor:pointer; border-radius:4px; padding:0 5px}
@@ -346,6 +348,11 @@ footer{max-width:1100px; margin:0 auto; padding:0 20px 30px; color:var(--faint);
           <button class="btn" id="mRedo" title="Redo (Ctrl+Shift+Z)">Redo</button>
           <button class="btn" id="mCopy">Copy as text</button>
           <button class="btn" id="mLink" title="Copy a link that restores the key, every setting, the seed and this exact pattern">Copy link</button>
+          <button class="btn" id="mPaste" title="Paste tracker clipboard text (OpenMPT IT / XM, DUET SW) into the Melody column">Paste from tracker</button>
+        </div>
+        <div id="mPasteBox" hidden>
+          <textarea id="mPasteText" spellcheck="false" placeholder="Paste the tracker text here (ModPlug Tracker  IT / XM, or DUET SW), then press Import"></textarea>
+          <div class="btns"><button class="btn primary small" id="mPasteGo">Import</button><button class="btn small" id="mPasteCancel">Cancel</button></div>
         </div>
         <div class="hint" style="margin-top:10px" id="mMsg"></div>
       </div>
@@ -1009,12 +1016,12 @@ function variationMelody(){
 /* --- columns: every pattern column is a COLS entry; the renderer, the header export buttons, the
    text dump and playback all iterate it. Adding a column = adding an entry (+ its generator). --- */
 const COLS=[
- {id:'mel', label:'Melody', short:'Mel',  cells:()=>MEL.cells, cls:'nt', w:'76px', fxw:'48px', fx:true,  edit:true,  toggle:null,     noteOff:true, play:null},
+ {id:'mel', label:'Melody', short:'Mel',  cells:()=>MEL.cells, cls:'nt', w:'80px', fxw:'48px', fx:true,  edit:true,  toggle:null,     noteOff:true, play:null},
  {id:'arp', label:'Arp',    short:'Arp',  cells:()=>MEL.arp,   cls:'ar', w:'76px', fxw:'48px', fx:true,  edit:false, toggle:'#mArp',  noteOff:true,
   play:(cells,t0,stepDur)=>cells.forEach((c,i)=>{ if(c.type==='note') playArp([c.midi,...c.arp.map(o=>c.midi+o)],noteLen(cells,i)*stepDur*.99,null,{t:t0+i*stepDur,gain:.20,wave:'pulse125'}); })},
- {id:'bass',label:'Bass',   short:'Bass', cells:()=>MEL.bass,  cls:'bs', w:'104px',            fx:false, edit:true,  toggle:'#mBass', noteOff:true, kind:'bass',
+ {id:'bass',label:'Bass',   short:'Bass', cells:()=>MEL.bass,  cls:'bs', w:'112px',            fx:false, edit:true,  toggle:'#mBass', noteOff:true, kind:'bass',
   play:(cells,t0,stepDur)=>cells.forEach((c,i)=>{ if(c.type==='note') voice(c.midi,{t:t0+i*stepDur,dur:Math.max(noteLen(cells,i)*stepDur*.92,.06),gain:i%4===0?.6:.35,wave:'triangle'}); })},
- {id:'drums',label:'Drums', short:'Drm',  cells:()=>MEL.drums, cls:'dr', w:'76px',             fx:false, edit:true,  toggle:'#mDrums', noteOff:false, kind:'drum',
+ {id:'drums',label:'Drums', short:'Drm',  cells:()=>MEL.drums, cls:'dr', w:'96px',             fx:false, edit:true,  toggle:'#mDrums', noteOff:false, kind:'drum',
   text:c=>(DRUMS[c.drum]||DRUMS.K).tag,
   play:(cells,t0,stepDur)=>cells.forEach((c,i)=>{ if(c.type==='note') (DRUMS[c.drum]||DRUMS.K).play(t0+i*stepDur,i%4===0?1:.8); })}
 ];
@@ -1025,8 +1032,10 @@ function renderPattern(){
   box.style.setProperty('--pcols','44px '+COLS.map(c=>c.w+(c.fx?' '+c.fxw:'')).join(' ')+' 1fr');
   const head=document.createElement('div'); head.className='phead';
   const xb=(col,fmt)=>`<button class="xb" data-col="${col.id}" data-fmt="${fmt}" title="Copy the ${col.label.toLowerCase()} column as ${fmt==='it'?'OpenMPT / IT text (DUET, OpenMPT, Schism)':'DUET SW text (SID-Wizard track)'}">${fmt==='it'?'IT':'SWM'}</button>`;
-  head.innerHTML='<span class="st">#</span>'+COLS.map(c=>`<span class="hc${c.fx?' fx':''}">${c.label}${xb(c,'it')}${xb(c,'swm')}</span>`).join('')+'<span class="ch">Chord</span>';
-  head.querySelectorAll('.xb').forEach(b=>b.addEventListener('click',()=>exportColumn(b.dataset.col,b.dataset.fmt)));
+  const ib=col=>col.edit?`<button class="xb imp" data-imp="${col.id}" title="Paste tracker text (OpenMPT IT / XM, DUET SW) into the ${col.label.toLowerCase()} column">&#8681;</button>`:'';
+  head.innerHTML='<span class="st">#</span>'+COLS.map(c=>`<span class="hc${c.fx?' fx':''}">${c.label}${xb(c,'it')}${xb(c,'swm')}${ib(c)}</span>`).join('')+'<span class="ch">Chord</span>';
+  head.querySelectorAll('.xb:not(.imp)').forEach(b=>b.addEventListener('click',()=>exportColumn(b.dataset.col,b.dataset.fmt)));
+  head.querySelectorAll('.imp').forEach(b=>b.addEventListener('click',()=>importColumn(b.dataset.imp)));
   box.appendChild(head);
   const cellHTML=(col,cells,i)=>{
     const c=cells[i]||{type:'rest'}; let txt,cls=col.cls;
@@ -1397,6 +1406,93 @@ document.addEventListener('keydown',e=>{
   if(k==='z'&&!e.shiftKey){ e.preventDefault(); undo(); }
   else if((k==='z'&&e.shiftKey)||k==='y'){ e.preventDefault(); redo(); }
 });
+
+/* ================= import ================= */
+/* Tracker clipboard text -> cells. Formats: OpenMPT "ModPlug Tracker  IT" / "ModPlug Tracker XM" (11-char cells:
+   note ins vol fx), Schism "Pasted Pattern - IT", and "DUET SW" / "DUET SID" (9-char cells: note ins fx par).
+   Notes are one octave above the app's names (C-5 = the app's C-4). ===, ^^^ and ~~~ end a note; an empty note
+   cell after a note is a hold. Tone portamento comes back as a slide value: IT Gxx / XM 3xx via the inverse of
+   itSpeed(), SW 03xx verbatim. Every other effect is counted and ignored. Pasted text is data: capped, never run. */
+function parseNoteName(t){ const m=/^([A-G])([-#])(\d)$/.exec(t); if(!m) return null; const pc=NOTE_NAMES.indexOf(m[1]+(m[2]==='#'?'#':'')); return pc<0?null:(+m[3]+1)*12+pc-12; }
+function parseTracker(text){
+  text=(text||'').replace(/\r/g,''); if(text.length>65536) text=text.slice(0,65536);
+  const lines=text.split('\n'); let head=''; while(lines.length&&!(head=lines.shift().trim()));
+  const fmt=/^DUET (SW|SID)$/i.test(head)?'sw':/ XM$/i.test(head)?'xm':/^ModPlug Tracker\s+\w+$|\sIT$/i.test(head)?'it':null;
+  if(!fmt) return {error:'Not tracker text: the first line must be "ModPlug Tracker  IT" (or XM) or "DUET SW".'};
+  const cw=fmt==='sw'?9:11, chans=[]; let rows=0, ignoredFx=0;
+  for(const raw of lines){
+    const line=raw.trimEnd(); if(!line.startsWith('|')) continue;
+    const parts=line.split('|').slice(1); if(!parts.length) continue;
+    parts.forEach((cell,ch)=>{
+      cell=cell.padEnd(cw,'.'); const note=cell.slice(0,3), ins=cell.slice(3,5);
+      const ev={note:null,off:false,ins:/^\d\d$/.test(ins)?+ins:null,porta:null};
+      if(/^(===|\^\^\^|~~~)$/.test(note)) ev.off=true; else if(note!=='...'){ const m=parseNoteName(note); if(m!=null) ev.note=m; }
+      if(fmt==='sw'){ const fx=cell.slice(5,7), par=cell.slice(7,9); if(fx==='03'&&/^[0-9A-F]{2}$/i.test(par)) ev.porta={sw:parseInt(par,16)}; else if(fx!=='..') ignoredFx++; }
+      else { const fx=cell.slice(8,11); const m=(fmt==='it'?/^G([0-9A-F]{2})$/i:/^3([0-9A-F]{2})$/i).exec(fx); if(m) ev.porta={xx:parseInt(m[1],16)}; else if(fx!=='...') ignoredFx++; }
+      (chans[ch]??=[]).length=rows; chans[ch][rows]=ev;
+    });
+    rows++;
+  }
+  if(!rows) return {error:'No pattern rows found under the header.'};
+  chans.forEach(c=>{ c.length=rows; for(let i=0;i<rows;i++) c[i]??={note:null,off:false,ins:null,porta:null}; });
+  return {fmt,rows,channels:chans,ignoredFx};
+}
+// one parsed channel -> app cells (padded to whole bars, at most 8 bars); kind: 'mel' | 'bass' | 'drum'
+function eventsToCells(evs,fmt,kind){
+  const rows=Math.min(128,Math.ceil(evs.length/16)*16), cells=[], bpm=+$('#mBpm').value; let ringing=false;
+  const DRUM_BY_PC={0:'K',2:'S',6:'H',10:'O'};
+  for(let i=0;i<rows;i++){
+    const ev=evs[i]||{note:null,off:false};
+    if(ev.note!=null){
+      if(kind==='drum'){ const d=(ev.ins>=1&&ev.ins<=4)?DRUM_ORDER[ev.ins-1]:(DRUM_BY_PC[ev.note%12]||'K'); cells.push({type:'note',drum:d,len:1}); ringing=false; }
+      else { const c={type:'note',midi:Math.max(12,Math.min(120,ev.note)),len:1}; if(kind==='mel'&&ev.porta) c.porta=ev.porta; cells.push(c); ringing=true; }
+    } else if(ev.off||!ringing) { cells.push({type:'rest'}); ringing=false; }
+    else cells.push({type:'hold'});
+  }
+  cells.forEach((c,i)=>{
+    if(c.type!=='note') return; c.len=noteLen(cells,i);
+    if(c.porta){ const p=prevNoteMidi(cells,i), semi=p==null?0:Math.abs(c.midi-p);
+      if(semi){ if(c.porta.sw!=null) c.slide=Math.max(1,Math.min(255,c.porta.sw)); else if(c.porta.xx) c.slide=slideVal(semi,40*semi/(bpm*c.porta.xx)); }
+      delete c.porta; }
+  });
+  return {cells,truncated:evs.length>128};
+}
+let IMPORT_TARGET='mel';
+function importText(text,colId){
+  const col=colById(colId)||colById('mel'), r=parseTracker(text);
+  if(r.error){ $('#mMsg').textContent=r.error; return false; }
+  const conv=eventsToCells(r.channels[0],r.fmt,col.kind||'mel'), cells=conv.cells;
+  pushUndo(); stopMelody(); MEL.sel=null;
+  const notes=[];
+  if(col.id==='mel'){
+    const bars=cells.length/16, lenChanged=bars!==MEL.bars;
+    MEL.cells=cells; MEL.bars=bars; setLenSelect(cells.length);
+    MEL.chords=[]; for(let b=0;b<bars;b++) MEL.chords.push(barChord(b));
+    if(lenChanged||!MEL.dirty.bass) MEL.bass=genBass(MEL.chords); regenArp(); if(lenChanged||!MEL.dirty.drums) regenDrums();
+    if(lenChanged){ MEL.dirty={bass:false,drums:false}; notes.push('bass and drums regenerated for the new length'); }
+    notes.push('chords: the current progression');
+  } else {
+    const n=MEL.cells.length, fit=cells.slice(0,n); while(fit.length<n) fit.push({type:'rest'});
+    if(col.id==='bass'){ MEL.bass=fit; MEL.dirty.bass=true; } else { MEL.drums=fit; MEL.dirty.drums=true; }
+    if(cells.length!==n) notes.push('fitted to the pattern length');
+  }
+  const src=r.fmt==='sw'?'DUET SW':r.fmt==='xm'?'ModPlug XM':'ModPlug IT';
+  if(r.channels.length>1) notes.push((r.channels.length-1)+' more channel'+(r.channels.length>2?'s':'')+' ignored (paste them into the other columns)');
+  if(r.ignoredFx) notes.push(r.ignoredFx+' effect'+(r.ignoredFx>1?'s':'')+' ignored');
+  if(conv.truncated) notes.push('cut to 8 bars');
+  $('#mPasteBox').hidden=true; renderPattern();
+  $('#mMsg').textContent=`Imported ${r.rows} rows from ${src} into ${col.label}`+(notes.length?' — '+notes.join(' · '):'')+'.';
+  return true;
+}
+function importColumn(colId){
+  IMPORT_TARGET=colId;
+  const fallback=()=>{ $('#mPasteBox').hidden=false; $('#mPasteText').focus(); $('#mMsg').textContent='Paste the tracker text into the box, then press Import ('+colById(colId).label+').'; };
+  if(navigator.clipboard&&navigator.clipboard.readText) navigator.clipboard.readText().then(t=>{ if(!importText(t,colId)) fallback(); }).catch(fallback);
+  else fallback();
+}
+$('#mPaste').addEventListener('click',()=>importColumn('mel'));
+$('#mPasteGo').addEventListener('click',()=>importText($('#mPasteText').value,IMPORT_TARGET));
+$('#mPasteCancel').addEventListener('click',()=>{ $('#mPasteBox').hidden=true; });
 
 /* ================= demos ================= */
 function am(){const r=57;return [r,r+3,r+7];} /* A minor around A3 for demos */
