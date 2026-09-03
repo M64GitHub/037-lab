@@ -38,12 +38,15 @@ keyboard that lights up the scale, then every chord shape
 type in your arp. Toggle *snap to scale* to see the raw formula vs. the diatonic one. Every card
 lists its inversions with the note each one puts on top; pick a **Top note** and the inversion
 that puts it there lights up in every card, since a fast arp is heard by its highest note.
-Common progressions play as fast arps in the current key. At the bottom, the **Finder** answers
-the reverse question: type an arp formula you copied from someone's song (`0 5 9`), note names
-(`C E G`) or tracker notes, or tick *Pick on keyboard* and click keys, and it tells you the chord,
-the inversion and the root-position formula, lists close chords when nothing matches exactly, and
-shows every key and scale the notes fit in, with a one-click *Set key*. Common
-progressions play as fast arps, one bar each, in the current key.
+Under the scale title a row of chips lists the keys that share the same notes (A minor = C major =
+D Dorian …, the modes) and the parallel key on the same root; click one to switch. Common
+progressions play as fast arps, one bar each, in the current key. At the bottom, the **Finder**
+answers the reverse question. Type an arp formula you copied from someone's song (`0 5 9`), note
+names (`C E G`) or tracker notes, or tick *Pick on keyboard* and click keys: the left pane names
+the chord, the inversion and the root-position formula, lists close chords when nothing matches
+exactly, and shows which keys hold that chord and as which degree (*Set key* switches). The right
+pane is the scale finder: type all the notes of a song and it ranks every scale that holds them by
+fewest unused notes, shows which notes are unused, and *Use* sets root and scale with one click.
 
 **Melody Lab** — a melody generator that thinks like a tracker: 16 rows per bar, hex step numbers,
 `C-4`-style notes, `|` for a note still ringing, `···` for a rest. Pick length (1–8 bars), tempo,
