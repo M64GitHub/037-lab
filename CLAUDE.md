@@ -21,7 +21,7 @@ Audio requires a user gesture to start — the first click on anything audible c
 
 ## Layout of the file
 
-`<style>` (lines ~10–233) → markup with a sticky header holding the **global controls** (root, scale, waveform, arp rate, volume) and four `<section class="tab">`s → one `<script>` divided by `/* ===== name ===== */` banners in this order: data, state, audio, tabs, global controls, keyboard, chord chips + degree cards, progressions, melody lab, url state + undo, import, harmonize, demos, techniques content, theory content, learn renderer, init.
+`<style>` (lines ~10–233) → markup with a sticky header holding the **global controls** (root, scale, waveform, arp rate, volume) and four `<section class="tab">`s → one `<script>` divided by `/* ===== name ===== */` banners in this order: data, state, audio, tabs, global controls, keyboard, chord chips + degree cards, progressions, finder, melody lab, url state + undo, import, harmonize, demos, techniques content, theory content, learn renderer, init.
 
 Add new code inside the matching banner section; the init block at the bottom fixes the render order.
 
@@ -42,6 +42,8 @@ Pitches are MIDI numbers; scales, chords and intervals are arrays of semitone of
 `fitChordRaw(rootAbs, chord)` is its sibling for chords that must not snap (borrowed chords, forced qualities): raw `iv` on an absolute root, `adj` all false, `out` per note. Both return the same shape, so everything downstream takes either.
 
 `S.top` (pitch class or null) and `S.invAll` drive the top-note view on the Scale tab: `fillTopSel()` rebuilds `#topSel` from the scale notes, and `renderDegrees` builds every card's inversion list eagerly (`buildInv`, which returns whether a row's top note matches) when either is set, marking the matching row `.hit` and cards without a match `.dim`. Both are in the URL state (`top`, `inva`).
+
+**Finder (finder section).** `FIND = {midis, pick}` is the entered note set (in entry order; the lowest note decides the inversion). `parseFinder(text)` accepts offsets (relative to C-4), bare note names (stacked upward from C-4, flats accepted via `FLATS`) or app-style names (`parseAppNote`, `C-4` = 60; not the IT-shifted `parseNoteName`). `identifyChord(midis)` compares the pitch-class set with every `CHORDS` shape on every root (exact hits with the inversion index, plus near misses differing by one note); `fitsIn(pcs)` lists every root × `SCALES` containing the set, current key first; `degreeLabel` gives the roman/degree of the chord root in a scale. `renderFinder` draws both; `renderScaleFinder` is the scale pane. Pick mode: `renderKeyboard` marks `.pick` keys and `pointerdown` calls `finderToggle`; `markPicks` re-marks after re-renders. Not part of the URL state.
 
 `rootMidi()` places the root around C3–B3 but shifts C/C#/D up an octave so chords sit in a comfortable register for all 12 keys. Roman numerals (`romanFor`) only apply to 7-note scales.
 

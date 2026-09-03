@@ -37,7 +37,12 @@ keyboard that lights up the scale, then every chord shape
 (triads, sus, power chords, 7ths, 6ths, add9) built on every scale note, shown as the digits you
 type in your arp. Toggle *snap to scale* to see the raw formula vs. the diatonic one. Every card
 lists its inversions with the note each one puts on top; pick a **Top note** and the inversion
-that puts it there lights up in every card, since a fast arp is heard by its highest note. Common
+that puts it there lights up in every card, since a fast arp is heard by its highest note.
+Common progressions play as fast arps in the current key. At the bottom, the **Finder** answers
+the reverse question: type an arp formula you copied from someone's song (`0 5 9`), note names
+(`C E G`) or tracker notes, or tick *Pick on keyboard* and click keys, and it tells you the chord,
+the inversion and the root-position formula, lists close chords when nothing matches exactly, and
+shows every key and scale the notes fit in, with a one-click *Set key*. Common
 progressions play as fast arps, one bar each, in the current key.
 
 **Melody Lab** — a melody generator that thinks like a tracker: 16 rows per bar, hex step numbers,

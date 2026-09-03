@@ -266,6 +266,16 @@ h2:first-child{margin-top:0}
 .lcard .body .demo{margin:8px 0}
 .lcard .body ul{margin:0 0 9px 18px}
 .lcard .body li{margin-bottom:4px}
+/* finder */
+.finder .frow{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.finder .frow label{font-size:12px; color:var(--dim); display:flex; gap:6px; align-items:center}
+#fInput{width:300px; max-width:100%}
+.fnotes{margin:10px 0 2px; color:var(--dim); font-size:12px; min-height:16px}
+.fres .fh{font-size:10.5px; text-transform:uppercase; letter-spacing:1px; color:var(--faint); margin:12px 0 6px}
+.fitem{display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:6px 10px; border:1px solid var(--line); border-radius:8px; background:var(--panel2); margin-bottom:6px; font-size:12.5px}
+.fitem b{color:var(--cyan)} .fitem .k{color:var(--faint); font-size:11px} .fitem .formula span{font-size:11px; padding:1px 5px}
+.fitem.cur{border-color:var(--cyan)} .fitem .btn{margin-left:auto}
+.kb .wk.pick,.kb .bk.pick{outline:3px solid var(--cyan); outline-offset:-3px}
 footer{max-width:1100px; margin:0 auto; padding:0 20px 30px; color:var(--faint); font-size:11.5px}
 </style>
 </head>
@@ -327,6 +337,21 @@ footer{max-width:1100px; margin:0 auto; padding:0 20px 30px; color:var(--faint);
     <h2>Common progressions in this key</h2>
     <div class="hint">Degrees of the scale, played as fast arps &mdash; one bar each. Steal freely; every hit song does.</div>
     <div id="progList"></div>
+
+    <h2>Finder</h2>
+    <div class="hint">Type an arp formula (<code>0 5 9</code>), note names (<code>C E G</code>) or tracker notes (<code>C-4 E-4 G-4</code>), or tick <b>Pick on keyboard</b> and click keys &mdash; and find out what chord that is, which inversion, and which scales it lives in.</div>
+    <div class="card finder">
+      <div class="frow">
+        <input type="text" id="fInput" placeholder="0 4 7  &middot;  C E G  &middot;  C-4 E-4 G-4" spellcheck="false" autocomplete="off">
+        <label><input type="checkbox" id="fPick"> Pick on keyboard</label>
+        <button class="btn small" id="fClear">Clear</button>
+        <button class="btn small primary" id="fChord">&#9656; Chord</button>
+        <button class="btn small" id="fArp">&#9656; Arp</button>
+      </div>
+      <div class="fnotes" id="fNotes"></div>
+      <div class="fres" id="fChordPane"></div>
+      <div class="fres" id="fScalePane"></div>
+    </div>
   </section>
 
   <section class="tab" id="tab-melody">
@@ -640,7 +665,8 @@ function renderKeyboard(){
     else { el.style.left=(wi*ww - ww*0.30)+'%'; el.style.width=(ww*0.62)+'%'; }
     const lbl=document.createElement('span'); lbl.className='lbl'; lbl.textContent=tname(m); el.appendChild(lbl);
     if(inSc){ const d=document.createElement('span'); d.className='deg'; d.textContent=pcs.indexOf(pc)+1; el.appendChild(d); }
-    el.addEventListener('pointerdown',()=>{ playNote(m,.4); el.classList.add('lit'); setTimeout(()=>el.classList.remove('lit'),220); });
+    if(FIND.pick&&FIND.midis.includes(m)) el.classList.add('pick');
+    el.addEventListener('pointerdown',()=>{ playNote(m,.4); el.classList.add('lit'); setTimeout(()=>el.classList.remove('lit'),220); if(FIND.pick) finderToggle(m); });
     kb.appendChild(el);
   }
 }
@@ -760,6 +786,83 @@ function renderScaleTab(){
 $('#snapChk').addEventListener('change',e=>{S.snap=e.target.checked; renderDegrees();});
 $('#topSel').addEventListener('change',e=>{ S.top=e.target.value===''?null:+e.target.value; renderDegrees(); saveState(); });
 $('#invAll').addEventListener('click',()=>{ S.invAll=!S.invAll; fillTopSel(); renderDegrees(); saveState(); });
+
+/* ================= finder ================= */
+/* The reverse question: "I have these notes / this formula — what is it?" FIND.midis is the entered set (ordered
+   as entered; the lowest note decides the inversion). Chord identity = pitch-class set equality against every
+   CHORDS shape on every root; "fits in" = every root × SCALES whose pitch classes contain the set. */
+const FIND={midis:[],pick:false};
+const FLATS={Db:'C#',Eb:'D#',Gb:'F#',Ab:'G#',Bb:'A#',Cb:'B',Fb:'E'};
+function parseAppNote(t){ const m=/^([A-G])([#b]?)-?(\d)$/i.exec(t); if(!m) return null; let n=m[1].toUpperCase()+(m[2]||''); n=FLATS[n]||n; const pc=NOTE_NAMES.indexOf(n.replace('b','')); return pc<0?null:(+m[3]+1)*12+pc; }
+function parseFinder(text){
+  const toks=(text||'').replace(/[,;·]/g,' ').trim().split(/\s+/).filter(Boolean); if(!toks.length) return {midis:[]};
+  if(toks.every(t=>/^-?\d{1,2}$/.test(t))){ const off=toks.map(Number); if(off.some(o=>o<-24||o>48)) return {error:'offsets between -24 and 48, please'}; return {midis:off.map(o=>60+o)}; }
+  const midis=[]; let prev=null;
+  for(const t of toks){
+    let m=parseAppNote(t);
+    if(m==null){ const nm=/^([A-G])([#b]?)$/i.exec(t); if(!nm) return {error:`Can't read "${t}" — use 0 4 7, C E G or C-4 E-4 G-4.`};
+      let n=nm[1].toUpperCase()+(nm[2]||''); n=FLATS[n]||n; const pc=NOTE_NAMES.indexOf(n); if(pc<0) return {error:`Unknown note "${t}".`};
+      m=prev==null?60+pc:prev+((pc-prev%12+12)%12||12); }                    // bare names stack upward from C-4
+    midis.push(m); prev=m;
+  }
+  return {midis};
+}
+const ROMAN7=['I','II','III','IV','V','VI','VII'];
+function degreeLabel(scale,scalePcs,rootPc,chordIv){ const d=scalePcs.indexOf(rootPc); if(d<0) return null; if(scale.iv.length!==7) return String(d+1); const third=chordIv[1]; let r=ROMAN7[d]; if(third===3) r=r.toLowerCase(); if(third===3&&chordIv[2]===6) r+='°'; if(third===4&&chordIv[2]===8) r+='+'; return r; }
+function identifyChord(midis){
+  const pcs=[...new Set(midis.map(m=>((m%12)+12)%12))], lowest=Math.min(...midis), lo=((lowest%12)+12)%12, hits=[], near=[];
+  for(const c of CHORDS) for(let root=0;root<12;root++){
+    const set=c.iv.map(o=>(root+o)%12), uniq=[...new Set(set)];
+    const inter=uniq.filter(p=>pcs.includes(p)).length;
+    if(inter===pcs.length&&inter===uniq.length){ const inv=set.indexOf(lo); hits.push({c,root,inv:inv<0?0:inv}); }
+    else if(pcs.length>=2&&Math.abs(uniq.length-pcs.length)===1&&inter===Math.min(uniq.length,pcs.length)){
+      const diff=uniq.length>pcs.length?'add '+pcname(uniq.find(p=>!pcs.includes(p))):'drop '+pcname(pcs.find(p=>!uniq.includes(p)));
+      near.push({c,root,diff});
+    }
+  }
+  hits.sort((a,b)=>a.inv-b.inv||CHORDS.indexOf(a.c)-CHORDS.indexOf(b.c));
+  return {pcs,hits,near:near.slice(0,4)};
+}
+function fitsIn(pcs){
+  const out=[];
+  for(const sc of SCALES) for(let root=0;root<12;root++){
+    const spcs=sc.iv.map(i=>(root+i)%12); if(!pcs.every(p=>spcs.includes(p))) continue;
+    out.push({sc,root,spcs,cur:sc.id===S.scale.id&&root===S.root});
+  }
+  out.sort((a,b)=>(b.cur-a.cur)||(SCALES.indexOf(a.sc)-SCALES.indexOf(b.sc))||(a.root-b.root));
+  return out;
+}
+function finderToggle(m){ const i=FIND.midis.indexOf(m); if(i>=0) FIND.midis.splice(i,1); else FIND.midis.push(m); $('#fInput').value=FIND.midis.map(tname).join(' '); markPicks(); renderFinder(); }
+function markPicks(){ $$('#kb .wk, #kb .bk').forEach(el=>el.classList.toggle('pick',FIND.pick&&FIND.midis.includes(+el.dataset.midi))); }
+function renderFinder(){
+  const notesEl=$('#fNotes'), pane=$('#fChordPane'); pane.innerHTML='';
+  const midis=FIND.midis; if(!midis.length){ notesEl.textContent=''; renderScaleFinder([]); return; }
+  const sorted=[...midis].sort((a,b)=>a-b), rel=sorted.map(m=>m-sorted[0]);
+  notesEl.innerHTML=`${midis.map(tname).join(' ')} &middot; from the lowest note: <span class="formula">${rel.map(r=>`<span>${r}</span>`).join('')}</span>`;
+  const id=identifyChord(midis); let h='';
+  if(midis.length<2){ h='<div class="fh">Chord</div><div class="fitem">add at least two notes</div>'; }
+  else if(id.hits.length){
+    h='<div class="fh">Chord</div>'+id.hits.map(x=>{ const rootPos=x.c.iv, v=invert(rootPos.map(o=>60+x.root+o),x.inv), tags=['root position','1st inversion','2nd inversion','3rd inversion'];
+      return `<div class="fitem"><b>${pcname(x.root)}${x.c.sfx||' major'}</b><span class="k">${x.c.name}</span> &middot; ${tags[x.inv]||x.inv+'th inversion'}${x.inv?` (${pcname(v.midis[0])} lowest)`:''} &middot; type <span class="formula">${v.rel.map(r=>`<span>${r}</span>`).join('')}</span>${x.inv?` &middot; root position <span class="formula">${rootPos.map(r=>`<span>${r}</span>`).join('')}</span>`:''}</div>`; }).join('');
+  } else {
+    h='<div class="fh">Chord</div><div class="fitem">no named chord &middot; offsets from the lowest note: <span class="formula">'+rel.map(r=>`<span>${r}</span>`).join('')+'</span></div>';
+    if(id.near.length) h+='<div class="fh">Close</div>'+id.near.map(x=>`<div class="fitem"><b>${pcname(x.root)}${x.c.sfx||' major'}</b><span class="k">${x.diff}</span></div>`).join('');
+  }
+  const fits=fitsIn(id.pcs), chordIv=id.hits[0]?id.hits[0].c.iv:null, chordRoot=id.hits[0]?id.hits[0].root:null;
+  h+='<div class="fh">Fits in</div>';
+  if(!fits.length) h+='<div class="fitem">no scale in the list holds all of these notes</div>';
+  else h+=fits.slice(0,12).map(x=>{ const lbl=chordIv?degreeLabel(x.sc,x.spcs,chordRoot,chordIv):null;
+      return `<div class="fitem${x.cur?' cur':''}"><b>${pcname(x.root)} ${x.sc.name}</b>${lbl?`<span class="k">${x.cur?'this key — ':''}${lbl}</span>`:x.cur?'<span class="k">this key</span>':''}<button class="btn small" data-key="${x.root}|${x.sc.id}">Set key</button></div>`; }).join('')+(fits.length>12?`<div class="fitem k">${fits.length-12} more</div>`:'');
+  pane.innerHTML=h;
+  pane.querySelectorAll('[data-key]').forEach(b=>b.addEventListener('click',()=>{ const [r,id]=b.dataset.key.split('|'); S.root=+r; S.scale=SCALES.find(x=>x.id===id); PROG.specs=null; setProgression(PROG.text,{rechord:false}); fillGlobal(); renderScaleTab(); fillMelodyProg(); saveState(); markPicks(); renderFinder(); }));
+  renderScaleFinder(id.pcs);
+}
+function renderScaleFinder(pcs){ $('#fScalePane').innerHTML=''; }   /* part 2 (step 12) fills this */
+$('#fInput').addEventListener('input',e=>{ const r=parseFinder(e.target.value); e.target.classList.toggle('bad',!!r.error); if(r.error){ $('#fNotes').textContent=r.error; return; } FIND.midis=r.midis; markPicks(); renderFinder(); });
+$('#fPick').addEventListener('change',e=>{ FIND.pick=e.target.checked; markPicks(); });
+$('#fClear').addEventListener('click',()=>{ FIND.midis=[]; $('#fInput').value=''; $('#fInput').classList.remove('bad'); markPicks(); renderFinder(); });
+$('#fChord').addEventListener('click',()=>{ if(FIND.midis.length) playChordSim(FIND.midis); });
+$('#fArp').addEventListener('click',()=>{ if(FIND.midis.length) playArp([...FIND.midis].sort((a,b)=>a-b),1.2); });
 
 /* ================= melody lab ================= */
 const RHY={
