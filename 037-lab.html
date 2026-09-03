@@ -167,7 +167,11 @@ h2:first-child{margin-top:0}
 .inv.open{display:block}
 .inv .row{display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:12px}
 .inv .row .tag{color:var(--faint); min-width:4.2ch; font-size:11px}
-.inv .row .tn{color:var(--dim); font-size:11px; margin-left:auto}
+.inv .row .tn{color:var(--dim); font-size:11px; margin-left:auto; white-space:nowrap}
+.inv .row .tn .topn{color:var(--ink); font-weight:600}
+.inv .row.hit{background:var(--cyan-soft); border:1px solid var(--cyan); border-radius:6px; padding:3px 6px; margin:0 -6px 6px}
+.inv .row.hit .tn .topn{color:var(--cyan)}
+.dcard.dim{opacity:.45}
 
 /* ---------- progressions ---------- */
 .prog{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:9px 12px; border:1px solid var(--line); border-radius:9px; background:var(--panel); margin-bottom:8px}
@@ -308,6 +312,10 @@ footer{max-width:1100px; margin:0 auto; padding:0 20px 30px; color:var(--faint);
       <label style="font-size:12px; color:var(--dim); display:flex; gap:7px; align-items:center">
         <input type="checkbox" id="snapChk" checked> Snap to scale (show adjusted numbers)
       </label>
+      <label style="font-size:12px; color:var(--dim); display:flex; gap:7px; align-items:center" title="Highlight, in every card, the inversion that puts this note on top — the note a fast arp is heard by">
+        Top note <select id="topSel"></select>
+      </label>
+      <button class="btn small" id="invAll">Open all inversions</button>
       <div class="legend">
         <i><span class="dot n"></span> as selected</i>
         <i><span class="dot a"></span> adjusted to fit scale</i>
@@ -451,6 +459,8 @@ const S={
   scale:SCALES.find(x=>x.id==='nminor'),   /* natural minor */
   chord:CHORDS[0],   /* minor 0 3 7 */
   snap:true,
+  top:null,          /* pitch class to put on top of every chord's arp (Scale tab), or null */
+  invAll:false,
   wave:'pulse25',
   arpRate:30,
   vol:0.7
@@ -667,6 +677,27 @@ function formulaHTML(f){
     return `<span class="${cls}">${r}</span>`;
   }).join('')+'</span>';
 }
+// the inversion rows of one card; returns whether one of them puts S.top on top
+function buildInv(invBox,f){
+  invBox.innerHTML=''; let hit=false; const tags=['root','1st','2nd','3rd'];
+  for(let n=0;n<f.midis.length;n++){
+    const v=invert(f.midis,n), top=v.midis[v.midis.length-1], isHit=S.top!=null&&top%12===S.top; hit=hit||isHit;
+    const row=document.createElement('div'); row.className='row'+(isHit?' hit':'');
+    row.innerHTML=`<span class="tag">${tags[n]||n+'th'}</span>
+      <span class="formula">${v.rel.map(r=>`<span>${r}</span>`).join('')}</span>
+      <span class="tn" title="top note ${pcname(top)}">${v.midis.map((m,k)=>k===v.midis.length-1?`<b class="topn">${tname(m)}</b>`:tname(m)).join(' ')}</span>`;
+    const pb=document.createElement('button'); pb.className='btn small'; pb.textContent='\u25b8';
+    pb.onclick=()=>playArp(v.midis,1.0);
+    row.appendChild(pb); invBox.appendChild(row);
+  }
+  return hit;
+}
+function fillTopSel(){
+  const sel=$('#topSel');
+  sel.innerHTML='<option value="">\u2013</option>'+S.scale.iv.map(iv=>{ const pc=(S.root+iv)%12; return `<option value="${pc}">${pcname(pc)}</option>`; }).join('');
+  if(S.top!=null&&scalePcs().includes(S.top)) sel.value=String(S.top); else { S.top=null; sel.value=''; }
+  $('#invAll').textContent=S.invAll?'Close inversions':'Open all inversions';
+}
 function renderDegrees(){
   const g=$('#degGrid'); g.innerHTML='';
   S.scale.iv.forEach((iv,di)=>{
@@ -689,23 +720,8 @@ function renderDegrees(){
     card.querySelector('[data-a=chord]').onclick=()=>playChordSim(f.midis);
     card.querySelector('[data-a=arp]').onclick=()=>playArp(f.midis,1.2);
     const invBox=card.querySelector('.inv');
-    card.querySelector('[data-a=inv]').onclick=()=>{
-      if(!invBox.classList.contains('open')){
-        invBox.innerHTML='';
-        const tags=['root','1st','2nd','3rd'];
-        for(let n=0;n<f.midis.length;n++){
-          const v=invert(f.midis,n);
-          const row=document.createElement('div'); row.className='row';
-          row.innerHTML=`<span class="tag">${tags[n]||n+'th'}</span>
-            <span class="formula">${v.rel.map(r=>`<span>${r}</span>`).join('')}</span>
-            <span class="tn">${v.midis.map(tname).join(' ')}</span>`;
-          const pb=document.createElement('button'); pb.className='btn small'; pb.textContent='\u25b8';
-          pb.onclick=()=>playArp(v.midis,1.0);
-          row.appendChild(pb); invBox.appendChild(row);
-        }
-      }
-      invBox.classList.toggle('open');
-    };
+    if(S.top!=null||S.invAll){ const hit=buildInv(invBox,f); invBox.classList.add('open'); if(S.top!=null&&!hit) card.classList.add('dim'); }
+    card.querySelector('[data-a=inv]').onclick=()=>{ if(!invBox.classList.contains('open')) buildInv(invBox,f); invBox.classList.toggle('open'); };
     g.appendChild(card);
   });
 }
@@ -739,9 +755,11 @@ function renderProgs(){
 function renderScaleTab(){
   $('#scaleTitle').textContent=`${pcname(S.root)} ${S.scale.name} \u2014 ${S.scale.iv.join(' ')}`;
   $('#scaleHint').textContent=S.scale.mood.charAt(0).toUpperCase()+S.scale.mood.slice(1)+'. Click keys or the note chips to hear them.';
-  renderKeyboard(); renderScaleStrip(); renderChordChips(); renderDegrees(); renderProgs();
+  renderKeyboard(); renderScaleStrip(); renderChordChips(); fillTopSel(); renderDegrees(); renderProgs();
 }
 $('#snapChk').addEventListener('change',e=>{S.snap=e.target.checked; renderDegrees();});
+$('#topSel').addEventListener('change',e=>{ S.top=e.target.value===''?null:+e.target.value; renderDegrees(); saveState(); });
+$('#invAll').addEventListener('click',()=>{ S.invAll=!S.invAll; fillTopSel(); renderDegrees(); saveState(); });
 
 /* ================= melody lab ================= */
 const RHY={
@@ -1342,7 +1360,7 @@ const MCTL=['mLen','mBpm','mDens','mRange','mRest','mLeap','mSlide','mProgText',
 const ctlAlias={progtext:'prog'};
 const ctlKey=id=>{ const k=id.slice(1).toLowerCase(); return ctlAlias[k]||k; };
 function appState(){
-  const o={r:S.root,s:S.scale.id,w:S.wave,a:S.arpRate};
+  const o={r:S.root,s:S.scale.id,w:S.wave,a:S.arpRate,top:S.top==null?'':S.top,inva:S.invAll?1:0};
   for(const id of MCTL){ const el=document.getElementById(id); o[ctlKey(id)]=el.type==='checkbox'?(el.checked?1:0):el.value; }
   o.prog=PROG.text;                                   // the last valid progression, not whatever the field holds
   o.seed=seedHex(MEL.seed);
@@ -1369,6 +1387,8 @@ function applyGlobalState(p){
   const sc=SCALES.find(x=>x.id===p.get('s')); if(sc) S.scale=sc;
   const w=p.get('w'); if(w&&[...$('#waveSel').options].some(o=>o.value===w)) S.wave=w;
   const a=+p.get('a'); if(p.has('a')&&a>=8&&a<=60) S.arpRate=a;
+  if(p.has('top')){ const t=p.get('top'); S.top=(t!==''&&+t>=0&&+t<12)?+t:null; }
+  if(p.has('inva')) S.invAll=p.get('inva')==='1';
 }
 function applyMelodyState(p){
   if(!p) return;
@@ -1642,7 +1662,8 @@ const TECH=[
 <p>Which numbers to use on which note of your scale? That is exactly what the <b>Scale &amp; Chords</b> tab computes for you.</p>`},
 {t:'Pick the inversion for the top note',d:'inversions',b:`
 <p>A fast arp is heard mostly by its <b>highest</b> note \u2014 it pokes out of the blur. <code>0 3 7</code>, <code>0 4 9</code> and <code>0 5 8</code> are the same minor chord, but each puts a different chord tone on top (and needs a different base note).</p>
-<p>Trick: choose inversions so the top notes of successive chords move by small steps. Your chord channel then plays a hidden second melody for free. The demo plays the same chord in all three inversions \u2014 listen to the top note climb.</p>`},
+<p>Trick: choose inversions so the top notes of successive chords move by small steps. Your chord channel then plays a hidden second melody for free. The demo plays the same chord in all three inversions \u2014 listen to the top note climb.</p>
+<p>In the app: on the <b>Scale &amp; Chords</b> tab pick a <b>Top note</b> above the chord cards and every card highlights the inversion that puts it on top (cards that can\u2019t are dimmed). In the Melody Lab, <b>Voicing: auto</b> does this bar by bar.</p>`},
 {t:'Echo / fake delay',d:'echo',b:`
 <p>Repeat each melody note after a fixed time (say 3 or 6 pattern rows) at much lower volume, and again even quieter. On a spare channel it becomes a lush echo; on the <i>same</i> channel, placed in the gaps of your melody, it fills space for free.</p>
 <p>Rule of thumb: echo volume \u2248 40% of the original, second echo \u2248 15%. Delay times that match the tempo (dotted 8th = 6 rows of 16ths) always groove.</p>`},

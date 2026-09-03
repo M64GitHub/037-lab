@@ -41,6 +41,8 @@ Pitches are MIDI numbers; scales, chords and intervals are arrays of semitone of
 
 `fitChordRaw(rootAbs, chord)` is its sibling for chords that must not snap (borrowed chords, forced qualities): raw `iv` on an absolute root, `adj` all false, `out` per note. Both return the same shape, so everything downstream takes either.
 
+`S.top` (pitch class or null) and `S.invAll` drive the top-note view on the Scale tab: `fillTopSel()` rebuilds `#topSel` from the scale notes, and `renderDegrees` builds every card's inversion list eagerly (`buildInv`, which returns whether a row's top note matches) when either is set, marking the matching row `.hit` and cards without a match `.dim`. Both are in the URL state (`top`, `inva`).
+
 `rootMidi()` places the root around C3–B3 but shifts C/C#/D up an octave so chords sit in a comfortable register for all 12 keys. Roman numerals (`romanFor`) only apply to 7-note scales.
 
 ### State and rendering

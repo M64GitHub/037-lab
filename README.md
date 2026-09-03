@@ -35,7 +35,9 @@ like harmonic, Hungarian and double harmonic; pentatonic, blues and the Japanese
 yo and Ryukyu; the symmetric whole-tone and diminished scales), each with a one-line mood. A
 keyboard that lights up the scale, then every chord shape
 (triads, sus, power chords, 7ths, 6ths, add9) built on every scale note, shown as the digits you
-type in your arp. Toggle *snap to scale* to see the raw formula vs. the diatonic one. Common
+type in your arp. Toggle *snap to scale* to see the raw formula vs. the diatonic one. Every card
+lists its inversions with the note each one puts on top; pick a **Top note** and the inversion
+that puts it there lights up in every card, since a fast arp is heard by its highest note. Common
 progressions play as fast arps, one bar each, in the current key.
 
 **Melody Lab** — a melody generator that thinks like a tracker: 16 rows per bar, hex step numbers,
