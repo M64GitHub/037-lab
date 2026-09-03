@@ -36,9 +36,9 @@ type in your arp. Toggle *snap to scale* to see the raw formula vs. the diatonic
 progressions play as fast arps, one bar each, in the current key.
 
 **Melody Lab** — a melody generator that thinks like a tracker: 16 rows per bar, hex step numbers,
-`C-4`-style notes, `|` for a note still ringing, `···` for a rest. Pick length, tempo, density,
-range, rests and leaps; it writes chord tones on the strong steps, walks stepwise in between,
-and shapes phrases (A B A B′). Click a note to reroll it, double-click to mute it, space to
+`C-4`-style notes, `|` for a note still ringing, `···` for a rest. Pick length (1–8 bars), tempo,
+density, range, rests and leaps; it writes chord tones on the strong steps, walks stepwise in
+between, and shapes phrases (A B A B′, longer forms repeat and end on a cadence). Click a note to reroll it, double-click to mute it, space to
 play. Chord arps and a triangle octave bass come along for the ride, each in its own column so you
 see exactly what plays under the melody, and each column has **IT** / **SWM** buttons in its
 header that copy it to the clipboard in OpenMPT's `ModPlug Tracker  IT` text or DUET's `DUET SW`
@@ -52,6 +52,18 @@ text* still gives you a plain readable dump.
   tells you the tick rate it runs at; the SWM export writes SID-Wizard's chord select (`07xx`) on
   the note row and lists the chords to enter in the chord table, since the clipboard cannot carry
   them.
+- **Progression** — type your own, one chord per bar, up to eight. The presets are just a
+  starting point. Changing it re-chords the pattern on screen (bass and arp follow, the melody
+  stays), and the Scale tab shows it as *Your progression*, playable like the others.
+
+  | you type | you get |
+  | --- | --- |
+  | `1 5 6 4` | scale degrees, snapped to the scale: whatever triad the scale gives on that degree |
+  | `i VI III VII` · `I V vi IV` | roman numerals mean what they say: upper = major, lower = minor, whatever the scale |
+  | `5 7` · `V7` · `2m7` · `1maj7` · `4sus4` · `7dim` | a suffix forces the shape: `m maj dim aug sus2 sus4 5 7 m7 maj7 m7b5 dim7 6 m6 add9` |
+  | `b6 b7` · `#4dim` · `bVI` | `b`/`#` shift the root a semitone — borrowed chords; digits that leave the scale show **red** |
+  | `1 - 5 -` | `-` holds the previous chord for another bar |
+
 - **Drums column** — a chip noise kit: kick (triangle pitch drop), snare (noise burst plus a short
   tone), closed and open hat (short and long high-passed noise), all synthesised from a 15-bit
   LFSR like the NES noise channel, no samples. Pick a **Drum style** (four on the floor, boom bap,
