@@ -1276,10 +1276,14 @@ function variationMelody(){
   if(!MEL.cells.length){generateMelody();return;}
   stopMelody(); pushUndo();
   const base={dens:$('#mDens').value,restP:0,leapP:(+$('#mLeap').value)/100};
-  for(let b=0;b<MEL.bars;b++){
-    const bar={cells:MEL.cells.slice(b*16,b*16+16)}, opts={...base,pool:barPool(MEL.chords[b])};
-    const v=varyBar(bar,MEL.chords[b],opts,.3,b===MEL.bars-1);
-    for(let i=0;i<16;i++) MEL.cells[b*16+i]=v.cells[i];
+  const key=()=>MEL.cells.map(c=>c.type==='note'?c.midi:c.type).join(','), before=key();
+  for(let attempt=0;attempt<8;attempt++){          /* a 30% reroll can land on the same notes (often in a 1-bar pattern): try again rather than do nothing */
+    for(let b=0;b<MEL.bars;b++){
+      const bar={cells:MEL.cells.slice(b*16,b*16+16)}, opts={...base,pool:barPool(MEL.chords[b])};
+      const v=varyBar(bar,MEL.chords[b],opts,.3,b===MEL.bars-1);
+      for(let i=0;i<16;i++) MEL.cells[b*16+i]=v.cells[i];
+    }
+    if(key()!==before) break;
   }
   placeSlides(MEL.cells,$('#mSlide').value,MEL.bars,curStepDur());
   renderPattern();
